@@ -1,5 +1,6 @@
 import { download } from "../lib/files.js";
 import { normalisiereFenster } from "../lib/migrate.js";
+import { t } from "../i18n/translations.js";
 
 export function datenSpeichern(fenster, projektNotiz, heute) {
   const daten = { app: "fenster-aufmass", version: 1, gespeichert: new Date().toISOString(), fenster, projektNotiz };
@@ -8,7 +9,7 @@ export function datenSpeichern(fenster, projektNotiz, heute) {
 
 // Liest eine zuvor exportierte JSON-Datei und liefert die bereinigte Fensterliste
 // samt allgemeiner Projektnotiz.
-export function datenLaden(datei) {
+export function datenLaden(datei, lang = "de") {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -29,7 +30,7 @@ export function datenLaden(datei) {
         const projektNotiz = Array.isArray(daten) ? "" : daten.projektNotiz ?? "";
         resolve({ fenster, projektNotiz });
       } catch (err) {
-        reject(new Error("Die Datei konnte nicht gelesen werden. Bitte eine mit dieser App gespeicherte JSON-Datei wählen."));
+        reject(new Error(t(lang, "fehlerDateiUngueltig")));
       }
     };
     reader.readAsText(datei);

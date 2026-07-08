@@ -1,4 +1,5 @@
 import { num } from "../lib/format.js";
+import { t } from "../i18n/translations.js";
 
 // Gemeinsamer Inhalt (HTML-Fragmente + CSS) für den HTML- und den PDF-Export,
 // damit beide immer dieselben, vollständigen Informationen zeigen.
@@ -52,43 +53,43 @@ function escapeHtml(text) {
     .replaceAll(">", "&gt;");
 }
 
-const LEGENDE_EINTRAEGE = [
-  { farbe: "#E6DFD3", rand: "#B9AC97", text: "Mauerwerk (Wand)" },
-  { farbe: "#FFFFFF", rand: "#22313F", text: "Maueraussparung" },
-  { farbe: "#CFE4F6", rand: "#2E4A66", text: "Fensterelement" },
-  { farbe: "#FBF0DC", rand: "#D9A441", text: "Rollladenraum" },
-];
+function legendeEintraege(lang) {
+  return [
+    { farbe: "#E6DFD3", rand: "#B9AC97", text: t(lang, "legendeMauerwerk") },
+    { farbe: "#FFFFFF", rand: "#22313F", text: t(lang, "legendeMaueraussparung") },
+    { farbe: "#CFE4F6", rand: "#2E4A66", text: t(lang, "legendeFensterelement") },
+    { farbe: "#FBF0DC", rand: "#D9A441", text: t(lang, "legendeRollladenraum") },
+  ];
+}
 
-export function deckblattHtml(fensterCount, heute, projektNotiz) {
+export function deckblattHtml(fensterCount, heute, projektNotiz, lang = "de") {
   const notiz = projektNotiz ? `
 <div class="projekt-notiz">
-  <strong>Allgemeine Hinweise</strong>${escapeHtml(projektNotiz)}
+  <strong>${t(lang, "reportAllgemeineHinweise")}</strong>${escapeHtml(projektNotiz)}
 </div>` : "";
 
   return `
 <header>
-  <h1>Fenster-Aufmaß</h1>
-  <div class="meta">Erstellt am ${heute} · ${fensterCount} Fenster · alle Maße in mm</div>
+  <h1>${t(lang, "reportTitel")}</h1>
+  <div class="meta">${t(lang, "reportErstelltAm", { datum: heute, anzahl: fensterCount })}</div>
 </header>
 ${notiz}
 <div class="hinweis">
-  <strong>Hinweis zur Rollladenraum-Tiefe:</strong> gemessen von der Wandkante bündig zum Fenster
-  bis zur Innenkante des Mauerwerks (zweischaliges Mauerwerk).
-  Die Rollladenraum-Höhe ergibt sich aus Aussparungshöhe minus Fensterhöhe.
+  <strong>${t(lang, "reportHinweisRollladenStark")}</strong> ${t(lang, "reportHinweisRollladenText")}
 </div>`;
 }
 
 // svgProvider(id) liefert das HTML für die Skizze – normalerweise das rohe SVG,
 // im PDF-Export (siehe exportPdf.js) stattdessen ein vorgerastertes <img>, weil
 // html2canvas komplexe inline-SVGs (Muster, gedrehter Text) nicht zuverlässig rendert.
-export function fensterBlockHtml(f, index, svgProvider) {
+export function fensterBlockHtml(f, index, svgProvider, lang = "de") {
   const svg = svgProvider(f.id) ?? "";
   const h = Math.max(num(f.aH) - num(f.fH), 0);
   const rT = num(f.rT), fT = num(f.fT);
 
   const legende = `
     <div class="legende">
-      ${LEGENDE_EINTRAEGE.map((e) => `
+      ${legendeEintraege(lang).map((e) => `
         <span class="eintrag">
           <span class="swatch" style="background:${e.farbe}; border:1.5px solid ${e.rand};"></span>
           ${e.text}
@@ -97,41 +98,41 @@ export function fensterBlockHtml(f, index, svgProvider) {
 
   const tiefeInfo = (rT > 0 || fT > 0) ? `
     <div class="tiefe-info">
-      ${rT > 0 ? `<div class="rollo"><strong>Rollladenraum-Tiefe: ${rT} mm</strong><br>gemessen von der Wandkante bündig zum Fenster bis zur Innenkante des Mauerwerks (zweischalig)</div>` : ""}
-      ${fT > 0 ? `<div class="fenster-tiefe"><strong>Fenster-Bautiefe: ${fT} mm</strong><br>Vorderkante bis Hinterkante des Fensterelements, an der tiefsten Stelle gemessen</div>` : ""}
+      ${rT > 0 ? `<div class="rollo"><strong>${t(lang, "rollladenTiefeLabel")}: ${rT} mm</strong><br>${t(lang, "rollladenTiefeBeschreibung")}</div>` : ""}
+      ${fT > 0 ? `<div class="fenster-tiefe"><strong>${t(lang, "fensterBautiefeLabel")}: ${fT} mm</strong><br>${t(lang, "fensterBautiefeBeschreibung")}</div>` : ""}
     </div>` : "";
 
   const fotos = (f.fotoInnen || f.fotoAussen) ? `
     <div class="fotos">
-      ${f.fotoAussen ? `<figure><img src="${f.fotoAussen}" alt="Foto außen"><figcaption>Ist-Zustand außen</figcaption></figure>` : ""}
-      ${f.fotoInnen ? `<figure><img src="${f.fotoInnen}" alt="Foto innen"><figcaption>Ist-Zustand innen</figcaption></figure>` : ""}
+      ${f.fotoAussen ? `<figure><img src="${f.fotoAussen}" alt="${t(lang, "reportFotoAussenCaption")}"><figcaption>${t(lang, "reportFotoAussenCaption")}</figcaption></figure>` : ""}
+      ${f.fotoInnen ? `<figure><img src="${f.fotoInnen}" alt="${t(lang, "reportFotoInnenCaption")}"><figcaption>${t(lang, "reportFotoInnenCaption")}</figcaption></figure>` : ""}
     </div>` : "";
 
   const fotoWunsch = (f.fotosWunsch?.length > 0) ? `
     <div class="foto-wunsch">
       <div class="galerie">
-        ${f.fotosWunsch.map((foto, i) => `<img src="${foto}" alt="Wunsch-Ausführung ${i + 1}">`).join("")}
+        ${f.fotosWunsch.map((foto, i) => `<img src="${foto}" alt="${t(lang, "reportWunschAusfuehrung")} ${i + 1}">`).join("")}
       </div>
-      <div class="titel">Wunsch-Ausführung</div>
+      <div class="titel">${t(lang, "reportWunschAusfuehrung")}</div>
     </div>` : "";
 
   const wunschNotiz = f.wunschNotiz ? `
     <div class="wunsch-notiz">
-      <strong>Wünsche</strong>${escapeHtml(f.wunschNotiz)}
+      <strong>${t(lang, "reportWuensche")}</strong>${escapeHtml(f.wunschNotiz)}
     </div>` : "";
 
   return `
     <section class="fenster">
-      <h2><span class="nr">${String(index + 1).padStart(2, "0")}</span> ${f.name ? f.name : "Ohne Bezeichnung"}</h2>
+      <h2><span class="nr">${String(index + 1).padStart(2, "0")}</span> ${f.name ? f.name : t(lang, "reportOhneBezeichnung")}</h2>
       <div class="skizze">${svg}</div>
       ${legende}
       ${tiefeInfo}
       <table>
-        <tr><th>Maueraussparung innen</th><td>B ${num(f.aB)} × H ${num(f.aH)} mm</td></tr>
-        <tr><th>Maueraussparung außen</th><td>B ${num(f.aaB)} × H ${num(f.aaH)} mm</td></tr>
-        <tr><th>Fensterelement (Bestand)</th><td>B ${num(f.fB)} × H ${num(f.fH)} mm</td></tr>
-        <tr><th>Fenster-Bautiefe (tiefste Stelle)</th><td>T ${fT} mm</td></tr>
-        <tr><th>Rollladenraum</th><td>T ${rT} × H ${h} mm</td></tr>
+        <tr><th>${t(lang, "reportMaueraussparungInnen")}</th><td>B ${num(f.aB)} × H ${num(f.aH)} mm</td></tr>
+        <tr><th>${t(lang, "reportMaueraussparungAussen")}</th><td>B ${num(f.aaB)} × H ${num(f.aaH)} mm</td></tr>
+        <tr><th>${t(lang, "reportFensterelementBestand")}</th><td>B ${num(f.fB)} × H ${num(f.fH)} mm</td></tr>
+        <tr><th>${t(lang, "reportFensterBautiefeTiefsteStelle")}</th><td>T ${fT} mm</td></tr>
+        <tr><th>${t(lang, "reportRollladenraum")}</th><td>T ${rT} × H ${h} mm</td></tr>
       </table>
       ${fotos}
       ${fotoWunsch}

@@ -1,8 +1,10 @@
 import { useRef } from "react";
 import { T } from "../design/tokens.js";
 import { bildVerkleinern } from "../lib/files.js";
+import { useI18n } from "../i18n/I18nContext.jsx";
 
 export function FotoFeld({ label, value, onChange }) {
+  const { t } = useI18n();
   const ref = useRef(null);
   const waehlen = async (e) => {
     const datei = e.target.files?.[0];
@@ -10,7 +12,7 @@ export function FotoFeld({ label, value, onChange }) {
     try {
       onChange(await bildVerkleinern(datei));
     } catch (err) {
-      alert("Das Foto konnte nicht gelesen werden.");
+      alert(t("alertFotoFehler"));
     }
     e.target.value = "";
   };
@@ -31,20 +33,20 @@ export function FotoFeld({ label, value, onChange }) {
             <button onClick={() => ref.current?.click()} style={{
               background: "none", border: "none", color: T.blue, fontSize: 12.5,
               cursor: "pointer", fontFamily: T.sans, padding: 0,
-            }}>Ersetzen</button>
+            }}>{t("ersetzen")}</button>
             <button onClick={() => onChange(null)} style={{
               background: "none", border: "none", color: T.warn, fontSize: 12.5,
               cursor: "pointer", fontFamily: T.sans, padding: 0,
-            }}>Entfernen</button>
+            }}>{t("entfernen")}</button>
           </div>
         </div>
       ) : (
         <button onClick={() => ref.current?.click()} style={{
           width: "100%", height: 110, borderRadius: 8, cursor: "pointer",
           border: `1.5px dashed ${T.line}`, background: T.paper,
-          color: T.line, fontSize: 13, fontFamily: T.sans,
+          color: T.line, fontSize: 13, fontFamily: T.sans, whiteSpace: "pre-line",
         }}>
-          + Foto aufnehmen<br />oder auswählen
+          {t("fotoAufnehmenPlatzhalter")}
         </button>
       )}
     </div>
@@ -54,6 +56,7 @@ export function FotoFeld({ label, value, onChange }) {
 // Wie FotoFeld, erlaubt aber beliebig viele Fotos (z. B. mehrere Referenzbilder
 // zur Wunsch-Ausführung) statt nur eines einzelnen.
 export function FotoGalerieFeld({ label, values, onChange }) {
+  const { t } = useI18n();
   const ref = useRef(null);
   const fotos = values ?? [];
 
@@ -64,7 +67,7 @@ export function FotoGalerieFeld({ label, values, onChange }) {
       const neue = await Promise.all(dateien.map(bildVerkleinern));
       onChange([...fotos, ...neue]);
     } catch (err) {
-      alert("Eines der Fotos konnte nicht gelesen werden.");
+      alert(t("alertFotosFehler"));
     }
     e.target.value = "";
   };
@@ -85,7 +88,7 @@ export function FotoGalerieFeld({ label, values, onChange }) {
               width: "100%", height: 90, objectFit: "cover",
               borderRadius: 8, border: `1px solid ${T.soft}`, display: "block",
             }} />
-            <button onClick={() => entfernen(i)} aria-label="Entfernen" style={{
+            <button onClick={() => entfernen(i)} aria-label={t("entfernen")} style={{
               position: "absolute", top: 4, right: 4, width: 22, height: 22,
               borderRadius: "50%", border: "none", background: "rgba(34,49,63,0.75)",
               color: "#FFF", fontSize: 13, lineHeight: "22px", padding: 0, cursor: "pointer",
@@ -97,7 +100,7 @@ export function FotoGalerieFeld({ label, values, onChange }) {
           border: `1.5px dashed ${T.line}`, background: T.paper,
           color: T.line, fontSize: 12, fontFamily: T.sans,
         }}>
-          + Foto
+          {t("fotoHinzufuegenKurz")}
         </button>
       </div>
     </div>

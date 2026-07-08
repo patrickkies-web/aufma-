@@ -31,7 +31,7 @@ function baueSeite(innerHtml) {
   return seite;
 }
 
-function baueContainer(fenster, svgProvider, heute, projektNotiz) {
+function baueContainer(fenster, svgProvider, heute, projektNotiz, lang) {
   stelleStyleSicher();
 
   const container = document.createElement("div");
@@ -41,11 +41,11 @@ function baueContainer(fenster, svgProvider, heute, projektNotiz) {
   container.style.left = "-99999px";
   container.style.width = `${PAGE_PX}px`;
 
-  const deckblatt = baueSeite(deckblattHtml(fenster.length, heute, projektNotiz));
+  const deckblatt = baueSeite(deckblattHtml(fenster.length, heute, projektNotiz, lang));
   container.appendChild(deckblatt);
 
   const seiten = fenster.map((f, i) => {
-    const seite = baueSeite(fensterBlockHtml(f, i, svgProvider));
+    const seite = baueSeite(fensterBlockHtml(f, i, svgProvider, lang));
     const fensterEl = seite.querySelector(".fenster");
     if (fensterEl) {
       fensterEl.style.border = "none";
@@ -95,7 +95,7 @@ function seiteEinpassen(pdf, canvas, istErsteSeite) {
 // Erstellt ein echtes, downloadbares Mehrseiten-PDF: eine A4-Seite als Deckblatt,
 // danach eine A4-Seite pro Fenster – jede Seite vollständig und zentriert eingepasst.
 // svgProvider(id) liefert die aktuell gerenderte Skizze (SVG-HTML) je Fenster.
-export async function exportAlsPdf(fenster, svgProvider, heute, projektNotiz, dateiname) {
+export async function exportAlsPdf(fenster, svgProvider, heute, projektNotiz, dateiname, lang = "de") {
   if (fenster.length === 0) return;
 
   // Skizzen vorab zu <img>-Tags rastern (html2canvas rendert komplexe inline-SVGs
@@ -106,7 +106,7 @@ export async function exportAlsPdf(fenster, svgProvider, heute, projektNotiz, da
   }
   const svgProviderFuerPdf = (id) => gerasterteSkizzen[id] ?? "";
 
-  const { container, deckblatt, seiten } = baueContainer(fenster, svgProviderFuerPdf, heute, projektNotiz);
+  const { container, deckblatt, seiten } = baueContainer(fenster, svgProviderFuerPdf, heute, projektNotiz, lang);
 
   try {
     await warteAufBilder(container);

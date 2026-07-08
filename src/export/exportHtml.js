@@ -1,17 +1,18 @@
 import { download } from "../lib/files.js";
 import { REPORT_CSS, deckblattHtml, fensterBlockHtml } from "./reportContent.js";
+import { t } from "../i18n/translations.js";
 
 // Baut den druckfertigen HTML-Report für alle erfassten Fenster.
 // svgProvider(id) liefert das gerenderte Skizzen-SVG (als HTML-String) für ein Fenster.
-export function baueFensterbauerHtml(fenster, svgProvider, heute, projektNotiz) {
-  const bloecke = fenster.map((f, i) => fensterBlockHtml(f, i, svgProvider)).join("\n");
+export function baueFensterbauerHtml(fenster, svgProvider, heute, projektNotiz, lang = "de") {
+  const bloecke = fenster.map((f, i) => fensterBlockHtml(f, i, svgProvider, lang)).join("\n");
 
   return `<!doctype html>
-<html lang="de">
+<html lang="${lang}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Fenster-Aufmaß – ${heute}</title>
+<title>${t(lang, "reportTitel")} – ${heute}</title>
 <style>
   ${REPORT_CSS}
   body { margin: 0; }
@@ -21,15 +22,15 @@ export function baueFensterbauerHtml(fenster, svgProvider, heute, projektNotiz) 
 </head>
 <body>
 <div class="aufmass-report">
-${deckblattHtml(fenster.length, heute, projektNotiz)}
+${deckblattHtml(fenster.length, heute, projektNotiz, lang)}
 ${bloecke}
-<footer>Zum Drucken oder als PDF speichern: Datei öffnen und die Druckfunktion des Browsers verwenden.</footer>
+<footer>${t(lang, "reportFusszeile")}</footer>
 </div>
 </body>
 </html>`;
 }
 
-export function exportFensterbauerHtml(fenster, svgProvider, heute, projektNotiz) {
-  const html = baueFensterbauerHtml(fenster, svgProvider, heute, projektNotiz);
+export function exportFensterbauerHtml(fenster, svgProvider, heute, projektNotiz, lang = "de") {
+  const html = baueFensterbauerHtml(fenster, svgProvider, heute, projektNotiz, lang);
   download(html, `fenster-aufmass-${heute.replaceAll(".", "-")}.html`, "text/html");
 }

@@ -1,5 +1,6 @@
 import { T, SK } from "../design/tokens.js";
 import { num } from "../lib/format.js";
+import { useI18n } from "../i18n/I18nContext.jsx";
 
 function Tick({ x, y }) {
   return <line x1={x - 4} y1={y + 4} x2={x + 4} y2={y - 4} stroke={T.blue} strokeWidth="1.4" />;
@@ -49,6 +50,7 @@ function DimV({ y1, y2, x, label, left = true }) {
 
 // Skizze: Frontansicht der Maueraussparung mit Fensterelement und Rollladenraum.
 export function Skizze({ w, compact = false }) {
+  const { t } = useI18n();
   const aB = num(w.aB), aH = num(w.aH), fB = num(w.fB), fH = num(w.fH), rT = num(w.rT);
   if (aB <= 0 || aH <= 0) {
     return (
@@ -56,7 +58,7 @@ export function Skizze({ w, compact = false }) {
         padding: 24, textAlign: "center", color: T.line,
         fontFamily: T.sans, fontSize: 13, border: `1px dashed ${T.soft}`, borderRadius: 8,
       }}>
-        Skizze erscheint, sobald Breite und Höhe der Maueraussparung eingetragen sind.
+        {t("skizzePlatzhalter")}
       </div>
     );
   }
@@ -123,17 +125,17 @@ export function Skizze({ w, compact = false }) {
         </g>
       )}
 
-      <DimH x1={x0} x2={x0 + W} y={y0 + H + wd + 20} label={`Aussparung ${aB} mm`} above={false} />
-      <DimV y1={y0} y2={y0 + H} x={x0 - wd - 18} label={`Aussparung ${aH} mm`} />
-      {zeigtFenster && <DimH x1={fx} x2={fx + fW} y={y0 - wd - 12} label={`Fenster ${fB} mm`} />}
-      {zeigtFenster && <DimV y1={fy} y2={y0 + H} x={x0 + W + wd + 16} label={`Fenster ${fH} mm`} left={false} />}
+      <DimH x1={x0} x2={x0 + W} y={y0 + H + wd + 20} label={`${t("labelAussparung")} ${aB} mm`} above={false} />
+      <DimV y1={y0} y2={y0 + H} x={x0 - wd - 18} label={`${t("labelAussparung")} ${aH} mm`} />
+      {zeigtFenster && <DimH x1={fx} x2={fx + fW} y={y0 - wd - 12} label={`${t("labelFenster")} ${fB} mm`} />}
+      {zeigtFenster && <DimV y1={fy} y2={y0 + H} x={x0 + W + wd + 16} label={`${t("labelFenster")} ${fH} mm`} left={false} />}
       {zeigtRollo && (
         <g>
           <line x1={x0 + W} y1={y0} x2={x0 + W + wd + 46} y2={y0}
             stroke={T.blue} strokeWidth="0.6" strokeDasharray="3 3" opacity="0.6" />
           <line x1={x0 + W} y1={fy} x2={x0 + W + wd + 46} y2={fy}
             stroke={T.blue} strokeWidth="0.6" strokeDasharray="3 3" opacity="0.6" />
-          <DimV y1={y0} y2={fy} x={x0 + W + wd + 46} label={`Rollo ${rH} mm`} left={false} />
+          <DimV y1={y0} y2={fy} x={x0 + W + wd + 46} label={`${t("labelRollo")} ${rH} mm`} left={false} />
         </g>
       )}
     </svg>

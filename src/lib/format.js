@@ -3,5 +3,5 @@ export const num = (v) => {
   return isNaN(n) ? 0 : n;
 };
 
-export const heutigesDatum = () =>
-  new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+export const heutigesDatum = (lang = "de") =>
+  new Date().toLocaleDateString(lang === "pl" ? "pl-PL" : "de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });

@@ -1,8 +1,10 @@
 import { T, SK } from "../design/tokens.js";
 import { num } from "../lib/format.js";
+import { useI18n } from "../i18n/I18nContext.jsx";
 
 // Textzeilen für Tiefenmaße, die in der Frontansicht nicht darstellbar sind.
 export function TiefenInfo({ w }) {
+  const { t } = useI18n();
   const rT = num(w.rT), fT = num(w.fT);
   if (rT <= 0 && fT <= 0) return null;
   return (
@@ -13,9 +15,9 @@ export function TiefenInfo({ w }) {
           background: SK.rolloBg, border: `1px solid ${SK.rollo}`,
           fontSize: 12.5, color: T.ink, fontFamily: T.sans, lineHeight: 1.45,
         }}>
-          <strong style={{ fontFamily: T.mono }}>Rollladenraum-Tiefe: {rT} mm</strong>
+          <strong style={{ fontFamily: T.mono }}>{t("rollladenTiefeLabel")}: {rT} mm</strong>
           <br />
-          gemessen von der Wandkante bündig zum Fenster bis zur Innenkante des Mauerwerks (zweischalig)
+          {t("rollladenTiefeBeschreibung")}
         </div>
       )}
       {fT > 0 && (
@@ -24,9 +26,9 @@ export function TiefenInfo({ w }) {
           background: SK.glas, border: `1px solid ${SK.rahmen}`,
           fontSize: 12.5, color: T.ink, fontFamily: T.sans, lineHeight: 1.45,
         }}>
-          <strong style={{ fontFamily: T.mono }}>Fenster-Bautiefe: {fT} mm</strong>
+          <strong style={{ fontFamily: T.mono }}>{t("fensterBautiefeLabel")}: {fT} mm</strong>
           <br />
-          Vorderkante bis Hinterkante des Fensterelements, an der tiefsten Stelle gemessen
+          {t("fensterBautiefeBeschreibung")}
         </div>
       )}
     </div>

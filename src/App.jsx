@@ -9,6 +9,8 @@ import { Skizze } from "./components/Skizze.jsx";
 import { TiefenInfo } from "./components/TiefenInfo.jsx";
 import { Legende } from "./components/Legende.jsx";
 import { FensterKarte } from "./components/FensterKarte.jsx";
+import { SpracheSchalter } from "./components/SpracheSchalter.jsx";
+import { useI18n } from "./i18n/I18nContext.jsx";
 import { exportFensterbauerHtml } from "./export/exportHtml.js";
 import { exportAlsPdf } from "./export/exportPdf.js";
 import { datenSpeichern, datenLaden } from "./export/exportJson.js";
@@ -30,6 +32,7 @@ const leer = {
 };
 
 export default function App() {
+  const { lang, t } = useI18n();
   const [fenster, setFenster] = useState([]);
   const [projektNotiz, setProjektNotiz] = useState("");
   const [form, setForm] = useState(leer);
@@ -75,8 +78,8 @@ export default function App() {
   const rH = Math.max(num(form.aH) - num(form.fH), 0);
   const gueltig = num(form.aB) > 0 && num(form.aH) > 0;
   const warnung =
-    (num(form.fB) > num(form.aB) && num(form.aB) > 0 && "Fensterbreite ist größer als die Aussparung.") ||
-    (num(form.fH) > num(form.aH) && num(form.aH) > 0 && "Fensterhöhe ist größer als die Aussparung.") ||
+    (num(form.fB) > num(form.aB) && num(form.aB) > 0 && t("warnungBreite")) ||
+    (num(form.fH) > num(form.aH) && num(form.aH) > 0 && t("warnungHoehe")) ||
     null;
 
   const uebernehmen = () => {
@@ -108,19 +111,19 @@ export default function App() {
     const zeilen = fenster.map((f, i) => {
       const h = Math.max(num(f.aH) - num(f.fH), 0);
       return [
-        `Fenster ${i + 1}${f.name ? ` – ${f.name}` : ""}`,
-        `  Maueraussparung innen:  B ${num(f.aB)} × H ${num(f.aH)} mm`,
-        `  Maueraussparung außen:  B ${num(f.aaB)} × H ${num(f.aaH)} mm`,
-        `  Fensterelement:   B ${num(f.fB)} × H ${num(f.fH)} mm`,
-        `  Fenster-Bautiefe: T ${num(f.fT)} mm (Vorder- bis Hinterkante, tiefste Stelle)`,
-        `  Rollladenraum:    T ${num(f.rT)} × H ${h} mm`,
-        ...(f.wunschNotiz ? [`  Wünsche:          ${f.wunschNotiz}`] : []),
+        `${t("labelFenster")} ${i + 1}${f.name ? ` – ${f.name}` : ""}`,
+        `  ${t("reportMaueraussparungInnen")}:  B ${num(f.aB)} × H ${num(f.aH)} mm`,
+        `  ${t("reportMaueraussparungAussen")}:  B ${num(f.aaB)} × H ${num(f.aaH)} mm`,
+        `  ${t("tabelleFensterelement")}:   B ${num(f.fB)} × H ${num(f.fH)} mm`,
+        `  ${t("tabelleFensterBautiefe")}: T ${num(f.fT)} mm`,
+        `  ${t("tabelleRollladenraum")}:    T ${num(f.rT)} × H ${h} mm`,
+        ...(f.wunschNotiz ? [`  ${t("wuenscheLabel")}:          ${f.wunschNotiz}`] : []),
       ].join("\n");
     });
-    const kopf = `AUFMASS FENSTER – alle Maße in mm\n(Tiefe Rollladenraum = Wandkante bündig Fenster bis Innenkante Mauerwerk, zweischalig)`
-      + (projektNotiz ? `\n\nAllgemeine Hinweise:\n${projektNotiz}` : "");
+    const kopf = `${t("reportTitel").toUpperCase()} – alle Maße in mm`
+      + (projektNotiz ? `\n\n${t("reportAllgemeineHinweise")}:\n${projektNotiz}` : "");
     return `${kopf}\n\n${zeilen.join("\n\n")}`;
-  }, [fenster, projektNotiz]);
+  }, [fenster, projektNotiz, lang]);
 
   const kopieren = async () => {
     try {
@@ -139,19 +142,19 @@ export default function App() {
     }
   };
 
-  const heute = heutigesDatum();
+  const heute = heutigesDatum(lang);
 
   const svgProvider = (id) => document.querySelector(`[data-skizze="${id}"] svg`)?.outerHTML ?? "";
 
-  const handleExportHtml = () => exportFensterbauerHtml(fenster, svgProvider, heute, projektNotiz);
+  const handleExportHtml = () => exportFensterbauerHtml(fenster, svgProvider, heute, projektNotiz, lang);
 
   const handleExportPdf = async () => {
     setPdfWirdErstellt(true);
     try {
-      await exportAlsPdf(fenster, svgProvider, heute, projektNotiz);
+      await exportAlsPdf(fenster, svgProvider, heute, projektNotiz, undefined, lang);
     } catch (e) {
       console.error("PDF-Export fehlgeschlagen", e);
-      alert("Das PDF konnte nicht erstellt werden. Bitte erneut versuchen.");
+      alert(t("alertPdfFehler"));
     } finally {
       setPdfWirdErstellt(false);
     }
@@ -164,7 +167,7 @@ export default function App() {
     const datei = e.target.files?.[0];
     if (!datei) return;
     try {
-      const geladeneDaten = await datenLaden(datei);
+      const geladeneDaten = await datenLaden(datei, lang);
       speichern(geladeneDaten.fenster, geladeneDaten.projektNotiz);
       setProjektNotiz(geladeneDaten.projektNotiz);
       setEditId(null);
@@ -184,51 +187,57 @@ export default function App() {
   return (
     <div style={{ minHeight: "100vh", background: T.paper, fontFamily: T.sans, color: T.ink }}>
       <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 16px 60px" }}>
-        <header style={{ marginBottom: 18, borderBottom: `2px solid ${T.ink}`, paddingBottom: 10 }}>
-          <h1 style={{ margin: 0, fontSize: 22, letterSpacing: "0.01em" }}>Fenster-Aufmaß</h1>
-          <p style={{ margin: "4px 0 0", fontSize: 13, color: T.line }}>
-            Maße erfassen, Skizze prüfen, Aufmaß an den Fensterbauer geben. Alle Angaben in mm.
-          </p>
+        <header style={{
+          marginBottom: 18, borderBottom: `2px solid ${T.ink}`, paddingBottom: 10,
+          display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12,
+        }}>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 22, letterSpacing: "0.01em" }}>{t("appTitle")}</h1>
+            <p style={{ margin: "4px 0 0", fontSize: 13, color: T.line }}>
+              {t("appSubtitle")}
+            </p>
+          </div>
+          <SpracheSchalter />
         </header>
 
         <section style={{
           background: T.card, borderRadius: 12, padding: 16,
           border: `1px solid ${T.soft}`, marginBottom: 18,
         }}>
-          <Notizfeld label="Allgemeine Hinweise zum Projekt" value={projektNotiz} onChange={aktualisiereProjektNotiz}
-            placeholder="z. B. Zugang zum Objekt, Termine, Ansprechpartner, allgemeine Wünsche …" />
+          <Notizfeld label={t("allgemeineHinweiseLabel")} value={projektNotiz} onChange={aktualisiereProjektNotiz}
+            placeholder={t("allgemeineHinweisePlaceholder")} />
         </section>
 
         <section style={{
           background: T.card, borderRadius: 12, padding: 16,
           border: `1px solid ${T.soft}`, display: "grid", gap: 14,
         }}>
-          <Feld label="Bezeichnung / Raum" value={form.name} onChange={set("name")}
-            unit="" placeholder="z. B. Küche Süd" inputMode="text" />
+          <Feld label={t("bezeichnungLabel")} value={form.name} onChange={set("name")}
+            unit="" placeholder={t("bezeichnungPlaceholder")} inputMode="text" />
 
-          <Gruppe titel="Maueraussparung von innen (gesamt)">
-            <Feld label="Breite" value={form.aB} onChange={set("aB")} />
-            <Feld label="Höhe" value={form.aH} onChange={set("aH")} />
+          <Gruppe titel={t("gruppeAussparungInnenTitel")}>
+            <Feld label={t("feldBreite")} value={form.aB} onChange={set("aB")} />
+            <Feld label={t("feldHoehe")} value={form.aH} onChange={set("aH")} />
           </Gruppe>
 
-          <Gruppe titel="Maueraussparung von außen">
-            <Feld label="Breite" value={form.aaB} onChange={set("aaB")} />
-            <Feld label="Höhe" value={form.aaH} onChange={set("aaH")} />
+          <Gruppe titel={t("gruppeAussparungAussenTitel")}>
+            <Feld label={t("feldBreite")} value={form.aaB} onChange={set("aaB")} />
+            <Feld label={t("feldHoehe")} value={form.aaH} onChange={set("aaH")} />
           </Gruppe>
 
-          <Gruppe titel="Sichtbares Fensterelement (Bestand)">
-            <Feld label="Breite" value={form.fB} onChange={set("fB")} />
-            <Feld label="Höhe" value={form.fH} onChange={set("fH")} />
-            <Feld label="Bautiefe (Vorder- → Hinterkante)" value={form.fT} onChange={set("fT")} />
+          <Gruppe titel={t("gruppeFensterelementTitel")}>
+            <Feld label={t("feldBreite")} value={form.fB} onChange={set("fB")} />
+            <Feld label={t("feldHoehe")} value={form.fH} onChange={set("fH")} />
+            <Feld label={t("feldBautiefe")} value={form.fT} onChange={set("fT")} />
           </Gruppe>
 
-          <Gruppe titel="Rollladenraum">
-            <Feld label="Tiefe (Wandkante → Innenkante)" value={form.rT} onChange={set("rT")} />
+          <Gruppe titel={t("gruppeRollladenraumTitel")}>
+            <Feld label={t("feldTiefeRollladen")} value={form.rT} onChange={set("rT")} />
             <div>
               <span style={{
                 display: "block", fontSize: 11, letterSpacing: "0.04em",
                 textTransform: "uppercase", color: T.line, marginBottom: 4,
-              }}>Höhe (berechnet)</span>
+              }}>{t("feldHoeheBerechnet")}</span>
               <div style={{
                 padding: "10px 12px", borderRadius: 8, background: T.paper,
                 border: `1px dashed ${T.soft}`, fontFamily: T.mono, fontSize: 16,
@@ -238,17 +247,17 @@ export default function App() {
             </div>
           </Gruppe>
 
-          <Gruppe titel="Fotos Ist-Zustand">
-            <FotoFeld label="Foto von innen" value={form.fotoInnen} onChange={set("fotoInnen")} />
-            <FotoFeld label="Foto von außen" value={form.fotoAussen} onChange={set("fotoAussen")} />
+          <Gruppe titel={t("gruppeFotosIstZustandTitel")}>
+            <FotoFeld label={t("fotoInnenLabel")} value={form.fotoInnen} onChange={set("fotoInnen")} />
+            <FotoFeld label={t("fotoAussenLabel")} value={form.fotoAussen} onChange={set("fotoAussen")} />
           </Gruppe>
 
-          <Gruppe titel="Wunsch-Ausführung">
+          <Gruppe titel={t("gruppeWunschTitel")}>
             <div style={{ gridColumn: "1 / -1" }}>
-              <FotoGalerieFeld label="Referenzbilder (z. B. Konfigurator-Screenshots)" values={form.fotosWunsch} onChange={set("fotosWunsch")} />
+              <FotoGalerieFeld label={t("wunschBilderLabel")} values={form.fotosWunsch} onChange={set("fotosWunsch")} />
             </div>
-            <Notizfeld label="Wünsche zum Fenster" value={form.wunschNotiz} onChange={set("wunschNotiz")}
-              placeholder="z. B. 3 Felder, mittig Dreh-Kipp, außen Dreh, Farbe weiß …" />
+            <Notizfeld label={t("wunschNotizLabel")} value={form.wunschNotiz} onChange={set("wunschNotiz")}
+              placeholder={t("wunschNotizPlaceholder")} />
           </Gruppe>
 
           {warnung && (
@@ -267,11 +276,11 @@ export default function App() {
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={uebernehmen} disabled={!gueltig}
               style={{ ...btn(true), flex: 1, opacity: gueltig ? 1 : 0.4 }}>
-              {editId ? "Änderung speichern" : "Fenster hinzufügen"}
+              {editId ? t("btnAenderungSpeichern") : t("btnFensterHinzufuegen")}
             </button>
             {editId && (
               <button onClick={() => { setEditId(null); setForm(leer); }} style={btn(false)}>
-                Abbrechen
+                {t("btnAbbrechen")}
               </button>
             )}
           </div>
@@ -280,30 +289,30 @@ export default function App() {
         <section style={{ marginTop: 26 }}>
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
             <h2 style={{ margin: 0, fontSize: 15 }}>
-              Aufmaßliste <span style={{ color: T.line, fontFamily: T.mono, fontSize: 13 }}>({fenster.length})</span>
+              {t("aufmasslisteTitel")} <span style={{ color: T.line, fontFamily: T.mono, fontSize: 13 }}>({fenster.length})</span>
             </h2>
           </div>
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
             <button onClick={handleExportPdf} disabled={fenster.length === 0 || pdfWirdErstellt}
               style={{ ...btn(true), padding: "9px 14px", fontSize: 13, opacity: fenster.length && !pdfWirdErstellt ? 1 : 0.4 }}>
-              {pdfWirdErstellt ? "PDF wird erstellt…" : "Als PDF exportieren"}
+              {pdfWirdErstellt ? t("btnPdfWirdErstellt") : t("btnPdfExport")}
             </button>
             <button onClick={handleExportHtml} disabled={fenster.length === 0}
               style={{ ...btn(false), padding: "9px 14px", fontSize: 13, opacity: fenster.length ? 1 : 0.4 }}>
-              Export für Fensterbauer (HTML)
+              {t("btnHtmlExport")}
             </button>
             <button onClick={kopieren} disabled={fenster.length === 0}
               style={{ ...btn(false), padding: "9px 14px", fontSize: 13, opacity: fenster.length ? 1 : 0.4 }}>
-              {kopiert ? "✓ Kopiert" : "Als Text kopieren"}
+              {kopiert ? t("btnTextKopiert") : t("btnTextKopieren")}
             </button>
             <button onClick={handleDatenSpeichern} disabled={fenster.length === 0}
               style={{ ...btn(false), padding: "9px 14px", fontSize: 13, opacity: fenster.length ? 1 : 0.4 }}>
-              Datei speichern
+              {t("btnDateiSpeichern")}
             </button>
             <button onClick={() => dateiRef.current?.click()}
               style={{ ...btn(false), padding: "9px 14px", fontSize: 13 }}>
-              Datei laden
+              {t("btnDateiLaden")}
             </button>
             <input ref={dateiRef} type="file" accept=".json,application/json"
               onChange={handleDatenLaden} style={{ display: "none" }} />
@@ -311,7 +320,7 @@ export default function App() {
 
           {geladen && fenster.length === 0 && (
             <p style={{ fontSize: 13, color: T.line, textAlign: "center", padding: "18px 0" }}>
-              Noch keine Fenster erfasst. Trage oben das erste Fenster ein.
+              {t("leereListeHinweis")}
             </p>
           )}
 
