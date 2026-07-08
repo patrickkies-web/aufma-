@@ -57,6 +57,9 @@ export function deckblattHtml(fensterCount, heute) {
 </div>`;
 }
 
+// svgProvider(id) liefert das HTML für die Skizze – normalerweise das rohe SVG,
+// im PDF-Export (siehe exportPdf.js) stattdessen ein vorgerastertes <img>, weil
+// html2canvas komplexe inline-SVGs (Muster, gedrehter Text) nicht zuverlässig rendert.
 export function fensterBlockHtml(f, index, svgProvider) {
   const svg = svgProvider(f.id) ?? "";
   const h = Math.max(num(f.aH) - num(f.fH), 0);
