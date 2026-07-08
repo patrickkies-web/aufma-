@@ -22,6 +22,7 @@ export function datenLaden(datei) {
             aB: f.aB ?? "", aH: f.aH ?? "", aaB: f.aaB ?? "", aaH: f.aaH ?? "",
             fB: f.fB ?? "", fH: f.fH ?? "", fT: f.fT ?? "", rT: f.rT ?? "",
             fotoInnen: f.fotoInnen ?? null, fotoAussen: f.fotoAussen ?? null,
+            fotoWunsch: f.fotoWunsch ?? null, wunschNotiz: f.wunschNotiz ?? "",
           }));
         resolve(bereinigt);
       } catch (err) {

@@ -28,6 +28,29 @@ export function Feld({ label, value, onChange, unit = "mm", placeholder = "0", i
   );
 }
 
+export function Notizfeld({ label, value, onChange, placeholder = "" }) {
+  return (
+    <label style={{ display: "block", gridColumn: "1 / -1" }}>
+      <span style={{
+        display: "block", fontSize: 11, letterSpacing: "0.04em",
+        textTransform: "uppercase", color: T.line, marginBottom: 4, fontFamily: T.sans,
+      }}>{label}</span>
+      <textarea
+        value={value} placeholder={placeholder} rows={3}
+        onChange={(e) => onChange(e.target.value)}
+        style={{
+          width: "100%", boxSizing: "border-box", padding: "10px 12px",
+          border: `1px solid ${T.soft}`, borderRadius: 8, fontSize: 14,
+          fontFamily: T.sans, color: T.ink, background: "#FFF", outline: "none",
+          resize: "vertical",
+        }}
+        onFocus={(e) => (e.target.style.borderColor = T.blue)}
+        onBlur={(e) => (e.target.style.borderColor = T.soft)}
+      />
+    </label>
+  );
+}
+
 export function Gruppe({ titel, children }) {
   return (
     <fieldset style={{

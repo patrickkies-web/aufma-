@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { T } from "./design/tokens.js";
 import { num, heutigesDatum } from "./lib/format.js";
 import { storage, STORAGE_KEY } from "./lib/storage.js";
-import { Feld, Gruppe } from "./components/Feld.jsx";
+import { Feld, Gruppe, Notizfeld } from "./components/Feld.jsx";
 import { FotoFeld } from "./components/FotoFeld.jsx";
 import { Skizze } from "./components/Skizze.jsx";
 import { TiefenInfo } from "./components/TiefenInfo.jsx";
@@ -24,6 +24,8 @@ const leer = {
   rT: "", // Rollladenraum Tiefe (mm)
   fotoInnen: null, // Foto Ist-Zustand von innen (Daten-URL)
   fotoAussen: null, // Foto Ist-Zustand von außen (Daten-URL)
+  fotoWunsch: null, // Referenzbild gewünschte Ausführung, z. B. Konfigurator-Screenshot (Daten-URL)
+  wunschNotiz: "", // Freitext: Wünsche zum Fenster
 };
 
 export default function App() {
@@ -99,6 +101,7 @@ export default function App() {
         `  Fensterelement:   B ${num(f.fB)} × H ${num(f.fH)} mm`,
         `  Fenster-Bautiefe: T ${num(f.fT)} mm (Vorder- bis Hinterkante, tiefste Stelle)`,
         `  Rollladenraum:    T ${num(f.rT)} × H ${h} mm`,
+        ...(f.wunschNotiz ? [`  Wünsche:          ${f.wunschNotiz}`] : []),
       ].join("\n");
     });
     return `AUFMASS FENSTER – alle Maße in mm\n(Tiefe Rollladenraum = Wandkante bündig Fenster bis Innenkante Mauerwerk, zweischalig)\n\n${zeilen.join("\n\n")}`;
@@ -214,6 +217,14 @@ export default function App() {
           <Gruppe titel="Fotos Ist-Zustand">
             <FotoFeld label="Foto von innen" value={form.fotoInnen} onChange={set("fotoInnen")} />
             <FotoFeld label="Foto von außen" value={form.fotoAussen} onChange={set("fotoAussen")} />
+          </Gruppe>
+
+          <Gruppe titel="Wunsch-Ausführung">
+            <div style={{ gridColumn: "1 / -1" }}>
+              <FotoFeld label="Referenzbild (z. B. Konfigurator-Screenshot)" value={form.fotoWunsch} onChange={set("fotoWunsch")} />
+            </div>
+            <Notizfeld label="Wünsche zum Fenster" value={form.wunschNotiz} onChange={set("wunschNotiz")}
+              placeholder="z. B. 3 Felder, mittig Dreh-Kipp, außen Dreh, Farbe weiß …" />
           </Gruppe>
 
           {warnung && (
