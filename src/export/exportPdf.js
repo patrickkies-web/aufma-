@@ -1,6 +1,7 @@
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
 import { REPORT_CSS, deckblattHtml, fensterBlockHtml } from "./reportContent.js";
+import { svgZuImgTag } from "../lib/svgRaster.js";
 
 // Breite/Höhe von A4 in mm und die entsprechende Pixelbreite bei 96dpi.
 // Jede Seite wird exakt in dieser Breite gerendert, damit nichts über den
@@ -97,7 +98,15 @@ function seiteEinpassen(pdf, canvas, istErsteSeite) {
 export async function exportAlsPdf(fenster, svgProvider, heute, dateiname) {
   if (fenster.length === 0) return;
 
-  const { container, deckblatt, seiten } = baueContainer(fenster, svgProvider, heute);
+  // Skizzen vorab zu <img>-Tags rastern (html2canvas rendert komplexe inline-SVGs
+  // mit Mustern/gedrehtem Text nicht zuverlässig – ein fertiges Rasterbild schon).
+  const gerasterteSkizzen = {};
+  for (const f of fenster) {
+    gerasterteSkizzen[f.id] = await svgZuImgTag(svgProvider(f.id) ?? "");
+  }
+  const svgProviderFuerPdf = (id) => gerasterteSkizzen[id] ?? "";
+
+  const { container, deckblatt, seiten } = baueContainer(fenster, svgProviderFuerPdf, heute);
 
   try {
     await warteAufBilder(container);
