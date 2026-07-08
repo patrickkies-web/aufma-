@@ -1,4 +1,5 @@
 import { download } from "../lib/files.js";
+import { normalisiereFenster } from "../lib/migrate.js";
 
 export function datenSpeichern(fenster, heute) {
   const daten = { app: "fenster-aufmass", version: 1, gespeichert: new Date().toISOString(), fenster };
@@ -16,13 +17,13 @@ export function datenLaden(datei) {
         if (!Array.isArray(liste)) throw new Error("Kein gültiges Format");
         const bereinigt = liste
           .filter((f) => f && typeof f === "object")
-          .map((f, i) => ({
+          .map((f, i) => normalisiereFenster({
             id: f.id || `${Date.now().toString(36)}-${i}`,
             name: f.name || "",
             aB: f.aB ?? "", aH: f.aH ?? "", aaB: f.aaB ?? "", aaH: f.aaH ?? "",
             fB: f.fB ?? "", fH: f.fH ?? "", fT: f.fT ?? "", rT: f.rT ?? "",
             fotoInnen: f.fotoInnen ?? null, fotoAussen: f.fotoAussen ?? null,
-            fotoWunsch: f.fotoWunsch ?? null, wunschNotiz: f.wunschNotiz ?? "",
+            fotosWunsch: f.fotosWunsch, fotoWunsch: f.fotoWunsch, wunschNotiz: f.wunschNotiz ?? "",
           }));
         resolve(bereinigt);
       } catch (err) {
