@@ -2,9 +2,11 @@ import { T } from "../design/tokens.js";
 import { num } from "../lib/format.js";
 import { Skizze } from "./Skizze.jsx";
 import { TiefenInfo } from "./TiefenInfo.jsx";
+import { useI18n } from "../i18n/I18nContext.jsx";
 
 // Eine Karte in der Aufmaßliste: Skizze, Maße-Tabelle, Fotos, Bearbeiten/Löschen.
 export function FensterKarte({ f, index, aktiv, onBearbeiten, onLoeschen }) {
+  const { t } = useI18n();
   const h = Math.max(num(f.aH) - num(f.fH), 0);
   return (
     <article style={{
@@ -14,17 +16,17 @@ export function FensterKarte({ f, index, aktiv, onBearbeiten, onLoeschen }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
         <strong style={{ fontSize: 14 }}>
           <span style={{ fontFamily: T.mono, color: T.blue }}>{String(index + 1).padStart(2, "0")}</span>
-          {" "}{f.name || "Ohne Bezeichnung"}
+          {" "}{f.name || t("ohneBezeichnung")}
         </strong>
         <span style={{ display: "flex", gap: 12 }}>
           <button onClick={() => onBearbeiten(f)} style={{
             background: "none", border: "none", color: T.blue, fontSize: 13,
             cursor: "pointer", fontFamily: T.sans, padding: 0,
-          }}>Bearbeiten</button>
+          }}>{t("btnBearbeiten")}</button>
           <button onClick={() => onLoeschen(f.id)} style={{
             background: "none", border: "none", color: T.warn, fontSize: 13,
             cursor: "pointer", fontFamily: T.sans, padding: 0,
-          }}>Löschen</button>
+          }}>{t("btnLoeschen")}</button>
         </span>
       </div>
 
@@ -39,23 +41,23 @@ export function FensterKarte({ f, index, aktiv, onBearbeiten, onLoeschen }) {
       }}>
         <tbody>
           <tr>
-            <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>Aussparung innen</td>
+            <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>{t("tabelleAussparungInnen")}</td>
             <td style={{ textAlign: "right" }}>B {num(f.aB)} × H {num(f.aH)}</td>
           </tr>
           <tr>
-            <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>Aussparung außen</td>
+            <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>{t("tabelleAussparungAussen")}</td>
             <td style={{ textAlign: "right" }}>B {num(f.aaB)} × H {num(f.aaH)}</td>
           </tr>
           <tr>
-            <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>Fensterelement</td>
+            <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>{t("tabelleFensterelement")}</td>
             <td style={{ textAlign: "right" }}>B {num(f.fB)} × H {num(f.fH)}</td>
           </tr>
           <tr>
-            <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>Fenster-Bautiefe</td>
+            <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>{t("tabelleFensterBautiefe")}</td>
             <td style={{ textAlign: "right" }}>T {num(f.fT)}</td>
           </tr>
           <tr>
-            <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>Rollladenraum</td>
+            <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>{t("tabelleRollladenraum")}</td>
             <td style={{ textAlign: "right" }}>T {num(f.rT)} × H {h}</td>
           </tr>
         </tbody>
@@ -65,20 +67,20 @@ export function FensterKarte({ f, index, aktiv, onBearbeiten, onLoeschen }) {
         <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
           {f.fotoInnen && (
             <figure style={{ margin: 0, flex: 1 }}>
-              <img src={f.fotoInnen} alt="Innen" style={{
+              <img src={f.fotoInnen} alt={t("fotoInnenCaption")} style={{
                 width: "100%", height: 90, objectFit: "cover",
                 borderRadius: 8, border: `1px solid ${T.soft}`, display: "block",
               }} />
-              <figcaption style={{ fontSize: 11, color: T.line, textAlign: "center", marginTop: 3 }}>Innen</figcaption>
+              <figcaption style={{ fontSize: 11, color: T.line, textAlign: "center", marginTop: 3 }}>{t("fotoInnenCaption")}</figcaption>
             </figure>
           )}
           {f.fotoAussen && (
             <figure style={{ margin: 0, flex: 1 }}>
-              <img src={f.fotoAussen} alt="Außen" style={{
+              <img src={f.fotoAussen} alt={t("fotoAussenCaption")} style={{
                 width: "100%", height: 90, objectFit: "cover",
                 borderRadius: 8, border: `1px solid ${T.soft}`, display: "block",
               }} />
-              <figcaption style={{ fontSize: 11, color: T.line, textAlign: "center", marginTop: 3 }}>Außen</figcaption>
+              <figcaption style={{ fontSize: 11, color: T.line, textAlign: "center", marginTop: 3 }}>{t("fotoAussenCaption")}</figcaption>
             </figure>
           )}
         </div>
@@ -90,13 +92,13 @@ export function FensterKarte({ f, index, aktiv, onBearbeiten, onLoeschen }) {
             display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8,
           }}>
             {f.fotosWunsch.map((foto, i) => (
-              <img key={i} src={foto} alt={`Wunsch-Ausführung ${i + 1}`} style={{
+              <img key={i} src={foto} alt={`${t("wunschAusfuehrungCaption")} ${i + 1}`} style={{
                 width: "100%", height: 90, objectFit: "cover",
                 borderRadius: 8, border: `1px solid ${T.soft}`, display: "block",
               }} />
             ))}
           </div>
-          <div style={{ fontSize: 11, color: T.line, textAlign: "center", marginTop: 3 }}>Wunsch-Ausführung</div>
+          <div style={{ fontSize: 11, color: T.line, textAlign: "center", marginTop: 3 }}>{t("wunschAusfuehrungCaption")}</div>
         </div>
       )}
 
@@ -107,7 +109,7 @@ export function FensterKarte({ f, index, aktiv, onBearbeiten, onLoeschen }) {
           fontSize: 12.5, color: T.ink, lineHeight: 1.45, whiteSpace: "pre-wrap",
         }}>
           <strong style={{ fontFamily: T.sans, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: T.line }}>
-            Wünsche
+            {t("wuenscheLabel")}
           </strong>
           <div style={{ marginTop: 3 }}>{f.wunschNotiz}</div>
         </div>
