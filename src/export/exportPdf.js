@@ -1,16 +1,20 @@
 import html2canvas from "html2canvas";
 import { jsPDF } from "jspdf";
-import { baueFensterbauerHtml } from "./exportHtml.js";
+import { REPORT_CSS, deckblattHtml, fensterBlockHtml } from "./reportContent.js";
 
-// Rendert den Report in ein unsichtbares, gleich-origin iframe und wartet,
-// bis Layout und eingebettete Bilder (Fotos, Skizzen-SVG) fertig geladen sind.
+// Breite/Höhe von A4 in mm und die entsprechende Pixelbreite bei 96dpi.
+// Jede Seite wird exakt in dieser Breite gerendert (box-sizing: border-box),
+// damit nichts über den Seitenrand hinausragen und rechts abgeschnitten werden kann.
+const A4_MM = { w: 210, h: 297 };
+const PAGE_PX = 794; // 210mm bei 96dpi
+
 function renderInIframe(html) {
   return new Promise((resolve, reject) => {
     const iframe = document.createElement("iframe");
     iframe.style.position = "fixed";
     iframe.style.top = "-10000px";
     iframe.style.left = "0";
-    iframe.style.width = "820px";
+    iframe.style.width = `${PAGE_PX}px`;
     iframe.style.height = "1px";
     iframe.style.border = "none";
     document.body.appendChild(iframe);
@@ -29,7 +33,6 @@ function renderInIframe(html) {
                 })
           )
         );
-        // Höhe des iframes an den tatsächlichen Inhalt anpassen, damit html2canvas alles erfasst.
         iframe.style.height = `${doc.body.scrollHeight}px`;
         requestAnimationFrame(() => resolve({ iframe, doc }));
       } catch (err) {
@@ -40,47 +43,64 @@ function renderInIframe(html) {
   });
 }
 
-// Erstellt ein echtes, downloadbares Mehrseiten-PDF aus der Aufmaßliste.
+// Zeichnet ein Canvas so in die PDF-Seite, dass es garantiert vollständig
+// (Breite UND Höhe) auf die Seite passt – zentriert, notfalls verkleinert.
+function seiteEinpassen(pdf, canvas, istErsteSeite) {
+  if (!istErsteSeite) pdf.addPage();
+
+  const pxPerMmBreite = canvas.width / A4_MM.w;
+  const inhaltHoeheMm = canvas.height / pxPerMmBreite;
+
+  const skalierung = Math.min(1, A4_MM.h / inhaltHoeheMm);
+  const breiteMm = A4_MM.w * skalierung;
+  const hoeheMm = inhaltHoeheMm * skalierung;
+  const x = (A4_MM.w - breiteMm) / 2;
+  const y = (A4_MM.h - hoeheMm) / 2;
+
+  const imgData = canvas.toDataURL("image/jpeg", 0.92);
+  pdf.addImage(imgData, "JPEG", x, y, breiteMm, hoeheMm);
+}
+
+// Erstellt ein echtes, downloadbares Mehrseiten-PDF: eine A4-Seite als Deckblatt,
+// danach eine A4-Seite pro Fenster – jede Seite vollständig und zentriert eingepasst.
 // svgProvider(id) liefert die aktuell gerenderte Skizze (SVG-HTML) je Fenster.
 export async function exportAlsPdf(fenster, svgProvider, heute, dateiname) {
   if (fenster.length === 0) return;
-  const html = baueFensterbauerHtml(fenster, svgProvider, heute);
+
+  const seitenHtml = fenster
+    .map((f, i) => `<div class="pdf-seite" id="pdf-fenster-${f.id}">${fensterBlockHtml(f, i, svgProvider)}</div>`)
+    .join("\n");
+
+  const html = `<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<style>
+  ${REPORT_CSS}
+  html, body { width: ${PAGE_PX}px; }
+  .pdf-seite { width: ${PAGE_PX}px; padding: 36px 32px; }
+  .pdf-seite .fenster { border: none; padding: 0; margin: 0; }
+</style>
+</head>
+<body>
+<div class="pdf-seite" id="pdf-deckblatt">${deckblattHtml(fenster.length, heute)}</div>
+${seitenHtml}
+</body>
+</html>`;
+
   const { iframe, doc } = await renderInIframe(html);
 
   try {
-    const canvas = await html2canvas(doc.body, {
-      scale: 2,
-      useCORS: true,
-      backgroundColor: "#FFFFFF",
-      windowWidth: doc.documentElement.scrollWidth,
-      windowHeight: doc.documentElement.scrollHeight,
-    });
-
     const pdf = new jsPDF({ unit: "mm", format: "a4" });
-    const pageW = pdf.internal.pageSize.getWidth();
-    const pageH = pdf.internal.pageSize.getHeight();
 
-    const pxPerMm = canvas.width / pageW;
-    const pageHeightPx = pageH * pxPerMm;
-    const totalPages = Math.ceil(canvas.height / pageHeightPx);
+    const deckblatt = doc.getElementById("pdf-deckblatt");
+    const deckblattCanvas = await html2canvas(deckblatt, { scale: 2, useCORS: true, backgroundColor: "#FFFFFF" });
+    seiteEinpassen(pdf, deckblattCanvas, true);
 
-    for (let page = 0; page < totalPages; page++) {
-      const sliceHeightPx = Math.min(pageHeightPx, canvas.height - page * pageHeightPx);
-
-      const sliceCanvas = document.createElement("canvas");
-      sliceCanvas.width = canvas.width;
-      sliceCanvas.height = sliceHeightPx;
-      sliceCanvas
-        .getContext("2d")
-        .drawImage(
-          canvas,
-          0, page * pageHeightPx, canvas.width, sliceHeightPx,
-          0, 0, canvas.width, sliceHeightPx
-        );
-
-      const imgData = sliceCanvas.toDataURL("image/jpeg", 0.92);
-      if (page > 0) pdf.addPage();
-      pdf.addImage(imgData, "JPEG", 0, 0, pageW, sliceHeightPx / pxPerMm);
+    for (const f of fenster) {
+      const el = doc.getElementById(`pdf-fenster-${f.id}`);
+      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#FFFFFF" });
+      seiteEinpassen(pdf, canvas, false);
     }
 
     pdf.save(dateiname ?? `fenster-aufmass-${heute.replaceAll(".", "-")}.pdf`);
