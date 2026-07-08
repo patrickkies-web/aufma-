@@ -83,6 +83,29 @@ export function FensterKarte({ f, index, aktiv, onBearbeiten, onLoeschen }) {
           )}
         </div>
       )}
+
+      {f.fotoWunsch && (
+        <figure style={{ margin: "10px 0 0" }}>
+          <img src={f.fotoWunsch} alt="Wunsch-Ausführung" style={{
+            width: "100%", height: 120, objectFit: "cover",
+            borderRadius: 8, border: `1px solid ${T.soft}`, display: "block",
+          }} />
+          <figcaption style={{ fontSize: 11, color: T.line, textAlign: "center", marginTop: 3 }}>Wunsch-Ausführung</figcaption>
+        </figure>
+      )}
+
+      {f.wunschNotiz && (
+        <div style={{
+          marginTop: 10, padding: "8px 12px", borderRadius: 8,
+          background: T.paper, border: `1px solid ${T.soft}`,
+          fontSize: 12.5, color: T.ink, lineHeight: 1.45, whiteSpace: "pre-wrap",
+        }}>
+          <strong style={{ fontFamily: T.sans, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: T.line }}>
+            Wünsche
+          </strong>
+          <div style={{ marginTop: 3 }}>{f.wunschNotiz}</div>
+        </div>
+      )}
     </article>
   );
 }

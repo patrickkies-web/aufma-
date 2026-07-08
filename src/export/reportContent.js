@@ -34,8 +34,20 @@ export const REPORT_CSS = `
   .aufmass-report .fotos figure { margin: 0; flex: 1; }
   .aufmass-report .fotos img { width: 100%; border-radius: 8px; border: 1px solid #DDE4E8; display: block; }
   .aufmass-report .fotos figcaption { font-size: 12px; color: #6B7A85; text-align: center; margin-top: 4px; }
+  .aufmass-report .foto-wunsch { margin-top: 14px; }
+  .aufmass-report .foto-wunsch img { width: 100%; max-width: 320px; border-radius: 8px; border: 1px solid #DDE4E8; display: block; margin-inline: auto; }
+  .aufmass-report .foto-wunsch figcaption { font-size: 12px; color: #6B7A85; text-align: center; margin-top: 4px; }
+  .aufmass-report .wunsch-notiz { margin-top: 14px; padding: 10px 14px; border-radius: 8px; background: #F2F4F3; border: 1px solid #DDE4E8; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
+  .aufmass-report .wunsch-notiz strong { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #6B7A85; margin-bottom: 3px; }
   .aufmass-report footer { color: #6B7A85; font-size: 12px; margin-top: 24px; }
 `;
+
+function escapeHtml(text) {
+  return text
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
 
 const LEGENDE_EINTRAEGE = [
   { farbe: "#E6DFD3", rand: "#B9AC97", text: "Mauerwerk (Wand)" },
@@ -86,6 +98,16 @@ export function fensterBlockHtml(f, index, svgProvider) {
       ${f.fotoInnen ? `<figure><img src="${f.fotoInnen}" alt="Foto innen"><figcaption>Ist-Zustand innen</figcaption></figure>` : ""}
     </div>` : "";
 
+  const fotoWunsch = f.fotoWunsch ? `
+    <div class="foto-wunsch">
+      <figure><img src="${f.fotoWunsch}" alt="Wunsch-Ausführung"><figcaption>Wunsch-Ausführung</figcaption></figure>
+    </div>` : "";
+
+  const wunschNotiz = f.wunschNotiz ? `
+    <div class="wunsch-notiz">
+      <strong>Wünsche</strong>${escapeHtml(f.wunschNotiz)}
+    </div>` : "";
+
   return `
     <section class="fenster">
       <h2><span class="nr">${String(index + 1).padStart(2, "0")}</span> ${f.name ? f.name : "Ohne Bezeichnung"}</h2>
@@ -100,5 +122,7 @@ export function fensterBlockHtml(f, index, svgProvider) {
         <tr><th>Rollladenraum</th><td>T ${rT} × H ${h} mm</td></tr>
       </table>
       ${fotos}
+      ${fotoWunsch}
+      ${wunschNotiz}
     </section>`;
 }
