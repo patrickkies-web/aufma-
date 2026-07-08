@@ -107,6 +107,15 @@ export default function App() {
     }
   };
 
+  // Wünsche direkt in der Aufmaßliste-Karte bearbeiten, ohne erst über
+  // "Bearbeiten" das Formular oben zu öffnen.
+  const aendereWunschNotiz = (id, wunschNotiz) => {
+    speichern(fenster.map((f) => (f.id === id ? { ...f, wunschNotiz } : f)));
+    if (editId === id) {
+      setForm((f) => ({ ...f, wunschNotiz }));
+    }
+  };
+
   const aufmassText = useMemo(() => {
     const zeilen = fenster.map((f, i) => {
       const h = Math.max(num(f.aH) - num(f.fH), 0);
@@ -333,6 +342,7 @@ export default function App() {
                 aktiv={editId === f.id}
                 onBearbeiten={bearbeiten}
                 onLoeschen={loeschen}
+                onWunschNotizChange={aendereWunschNotiz}
               />
             ))}
           </div>
