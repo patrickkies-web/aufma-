@@ -3,44 +3,74 @@ import { jsPDF } from "jspdf";
 import { REPORT_CSS, deckblattHtml, fensterBlockHtml } from "./reportContent.js";
 
 // Breite/Höhe von A4 in mm und die entsprechende Pixelbreite bei 96dpi.
-// Jede Seite wird exakt in dieser Breite gerendert (box-sizing: border-box),
-// damit nichts über den Seitenrand hinausragen und rechts abgeschnitten werden kann.
+// Jede Seite wird exakt in dieser Breite gerendert, damit nichts über den
+// Seitenrand hinausragen und rechts abgeschnitten werden kann.
 const A4_MM = { w: 210, h: 297 };
 const PAGE_PX = 794; // 210mm bei 96dpi
 
-function renderInIframe(html) {
-  return new Promise((resolve, reject) => {
-    const iframe = document.createElement("iframe");
-    iframe.style.position = "fixed";
-    iframe.style.top = "-10000px";
-    iframe.style.left = "0";
-    iframe.style.width = `${PAGE_PX}px`;
-    iframe.style.height = "1px";
-    iframe.style.border = "none";
-    document.body.appendChild(iframe);
+// Das Report-CSS wird direkt im Hauptdokument eingefügt (kein iframe mehr) –
+// html2canvas hatte über ein per srcdoc befülltes iframe keine zuverlässigen
+// Koordinaten geliefert (Inhalt landete verschoben/rechtsbündig). Alle
+// Selektoren in REPORT_CSS sind unter ".aufmass-report" verschachtelt, damit
+// sie nicht auf die laufende App durchschlagen.
+function stelleStyleSicher() {
+  if (document.getElementById("pdf-export-style")) return;
+  const style = document.createElement("style");
+  style.id = "pdf-export-style";
+  style.textContent = REPORT_CSS;
+  document.head.appendChild(style);
+}
 
-    iframe.onload = async () => {
-      try {
-        const doc = iframe.contentDocument;
-        const bilder = Array.from(doc.images);
-        await Promise.all(
-          bilder.map((img) =>
-            img.complete
-              ? Promise.resolve()
-              : new Promise((res) => {
-                  img.onload = res;
-                  img.onerror = res;
-                })
-          )
-        );
-        iframe.style.height = `${doc.body.scrollHeight}px`;
-        requestAnimationFrame(() => resolve({ iframe, doc }));
-      } catch (err) {
-        reject(err);
-      }
-    };
-    iframe.srcdoc = html;
+function baueSeite(innerHtml) {
+  const seite = document.createElement("div");
+  seite.style.width = `${PAGE_PX}px`;
+  seite.style.padding = "36px 32px";
+  seite.style.background = "#FFFFFF";
+  seite.innerHTML = innerHtml;
+  return seite;
+}
+
+function baueContainer(fenster, svgProvider, heute) {
+  stelleStyleSicher();
+
+  const container = document.createElement("div");
+  container.className = "aufmass-report";
+  container.style.position = "fixed";
+  container.style.top = "0";
+  container.style.left = "-99999px";
+  container.style.width = `${PAGE_PX}px`;
+
+  const deckblatt = baueSeite(deckblattHtml(fenster.length, heute));
+  container.appendChild(deckblatt);
+
+  const seiten = fenster.map((f, i) => {
+    const seite = baueSeite(fensterBlockHtml(f, i, svgProvider));
+    const fensterEl = seite.querySelector(".fenster");
+    if (fensterEl) {
+      fensterEl.style.border = "none";
+      fensterEl.style.padding = "0";
+      fensterEl.style.margin = "0";
+    }
+    container.appendChild(seite);
+    return seite;
   });
+
+  document.body.appendChild(container);
+  return { container, deckblatt, seiten };
+}
+
+async function warteAufBilder(container) {
+  const bilder = Array.from(container.querySelectorAll("img"));
+  await Promise.all(
+    bilder.map((img) =>
+      img.complete
+        ? Promise.resolve()
+        : new Promise((res) => {
+            img.onload = res;
+            img.onerror = res;
+          })
+    )
+  );
 }
 
 // Zeichnet ein Canvas so in die PDF-Seite, dass es garantiert vollständig
@@ -67,44 +97,40 @@ function seiteEinpassen(pdf, canvas, istErsteSeite) {
 export async function exportAlsPdf(fenster, svgProvider, heute, dateiname) {
   if (fenster.length === 0) return;
 
-  const seitenHtml = fenster
-    .map((f, i) => `<div class="pdf-seite" id="pdf-fenster-${f.id}">${fensterBlockHtml(f, i, svgProvider)}</div>`)
-    .join("\n");
-
-  const html = `<!doctype html>
-<html lang="de">
-<head>
-<meta charset="utf-8">
-<style>
-  ${REPORT_CSS}
-  html, body { width: ${PAGE_PX}px; }
-  .pdf-seite { width: ${PAGE_PX}px; padding: 36px 32px; }
-  .pdf-seite .fenster { border: none; padding: 0; margin: 0; }
-</style>
-</head>
-<body>
-<div class="pdf-seite" id="pdf-deckblatt">${deckblattHtml(fenster.length, heute)}</div>
-${seitenHtml}
-</body>
-</html>`;
-
-  const { iframe, doc } = await renderInIframe(html);
+  const { container, deckblatt, seiten } = baueContainer(fenster, svgProvider, heute);
 
   try {
+    await warteAufBilder(container);
+    // Einen Frame abwarten, damit Layout/Fonts vor der Aufnahme sicher stehen.
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
     const pdf = new jsPDF({ unit: "mm", format: "a4" });
 
-    const deckblatt = doc.getElementById("pdf-deckblatt");
-    const deckblattCanvas = await html2canvas(deckblatt, { scale: 2, useCORS: true, backgroundColor: "#FFFFFF" });
+    const html2canvasOptions = {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: "#FFFFFF",
+      // Verhindert, dass html2canvas beim Klonen des Hauptdokuments den
+      // externen Google-Fonts-Import erneut anfragt (macht jede Seite langsam).
+      onclone: (clonedDoc) => {
+        clonedDoc.querySelectorAll('style, link[rel="stylesheet"]').forEach((el) => {
+          if (el.textContent?.includes("fonts.googleapis.com") || el.href?.includes("fonts.googleapis.com")) {
+            el.remove();
+          }
+        });
+      },
+    };
+
+    const deckblattCanvas = await html2canvas(deckblatt, html2canvasOptions);
     seiteEinpassen(pdf, deckblattCanvas, true);
 
-    for (const f of fenster) {
-      const el = doc.getElementById(`pdf-fenster-${f.id}`);
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true, backgroundColor: "#FFFFFF" });
+    for (const seite of seiten) {
+      const canvas = await html2canvas(seite, html2canvasOptions);
       seiteEinpassen(pdf, canvas, false);
     }
 
     pdf.save(dateiname ?? `fenster-aufmass-${heute.replaceAll(".", "-")}.pdf`);
   } finally {
-    document.body.removeChild(iframe);
+    document.body.removeChild(container);
   }
 }

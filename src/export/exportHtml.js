@@ -14,14 +14,17 @@ export function baueFensterbauerHtml(fenster, svgProvider, heute) {
 <title>Fenster-Aufmaß – ${heute}</title>
 <style>
   ${REPORT_CSS}
-  body { padding: 32px 24px; max-width: 800px; margin-inline: auto; }
-  @media print { body { padding: 0; } .fenster { border-color: #BFC9CF; } }
+  body { margin: 0; }
+  .aufmass-report { padding: 32px 24px; max-width: 800px; margin-inline: auto; }
+  @media print { .aufmass-report { padding: 0; } .fenster { border-color: #BFC9CF; } }
 </style>
 </head>
 <body>
+<div class="aufmass-report">
 ${deckblattHtml(fenster.length, heute)}
 ${bloecke}
 <footer>Zum Drucken oder als PDF speichern: Datei öffnen und die Druckfunktion des Browsers verwenden.</footer>
+</div>
 </body>
 </html>`;
 }
