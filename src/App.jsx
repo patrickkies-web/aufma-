@@ -177,7 +177,7 @@ export default function App() {
           border: `1px solid ${T.soft}`, display: "grid", gap: 14,
         }}>
           <Feld label="Bezeichnung / Raum" value={form.name} onChange={set("name")}
-            unit="" placeholder="z. B. Küche Süd" />
+            unit="" placeholder="z. B. Küche Süd" inputMode="text" />
 
           <Gruppe titel="Maueraussparung von innen (gesamt)">
             <Feld label="Breite" value={form.aB} onChange={set("aB")} />
