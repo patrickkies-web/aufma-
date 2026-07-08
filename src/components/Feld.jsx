@@ -1,6 +1,6 @@
 import { T } from "../design/tokens.js";
 
-export function Feld({ label, value, onChange, unit = "mm", placeholder = "0" }) {
+export function Feld({ label, value, onChange, unit = "mm", placeholder = "0", inputMode = "decimal" }) {
   return (
     <label style={{ display: "block" }}>
       <span style={{
@@ -9,7 +9,7 @@ export function Feld({ label, value, onChange, unit = "mm", placeholder = "0" })
       }}>{label}</span>
       <div style={{ position: "relative" }}>
         <input
-          type="text" inputMode="decimal" value={value} placeholder={placeholder}
+          type="text" inputMode={inputMode} value={value} placeholder={placeholder}
           onChange={(e) => onChange(e.target.value)}
           style={{
             width: "100%", boxSizing: "border-box", padding: "10px 44px 10px 12px",
