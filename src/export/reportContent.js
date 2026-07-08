@@ -35,8 +35,9 @@ export const REPORT_CSS = `
   .aufmass-report .fotos img { width: 100%; border-radius: 8px; border: 1px solid #DDE4E8; display: block; }
   .aufmass-report .fotos figcaption { font-size: 12px; color: #6B7A85; text-align: center; margin-top: 4px; }
   .aufmass-report .foto-wunsch { margin-top: 14px; }
-  .aufmass-report .foto-wunsch img { width: 100%; max-width: 320px; border-radius: 8px; border: 1px solid #DDE4E8; display: block; margin-inline: auto; }
-  .aufmass-report .foto-wunsch figcaption { font-size: 12px; color: #6B7A85; text-align: center; margin-top: 4px; }
+  .aufmass-report .foto-wunsch .galerie { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
+  .aufmass-report .foto-wunsch img { width: 100%; height: 110px; object-fit: cover; border-radius: 8px; border: 1px solid #DDE4E8; display: block; }
+  .aufmass-report .foto-wunsch .titel { font-size: 12px; color: #6B7A85; text-align: center; margin-top: 6px; }
   .aufmass-report .wunsch-notiz { margin-top: 14px; padding: 10px 14px; border-radius: 8px; background: #F2F4F3; border: 1px solid #DDE4E8; font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
   .aufmass-report .wunsch-notiz strong { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #6B7A85; margin-bottom: 3px; }
   .aufmass-report footer { color: #6B7A85; font-size: 12px; margin-top: 24px; }
@@ -98,9 +99,12 @@ export function fensterBlockHtml(f, index, svgProvider) {
       ${f.fotoInnen ? `<figure><img src="${f.fotoInnen}" alt="Foto innen"><figcaption>Ist-Zustand innen</figcaption></figure>` : ""}
     </div>` : "";
 
-  const fotoWunsch = f.fotoWunsch ? `
+  const fotoWunsch = (f.fotosWunsch?.length > 0) ? `
     <div class="foto-wunsch">
-      <figure><img src="${f.fotoWunsch}" alt="Wunsch-Ausführung"><figcaption>Wunsch-Ausführung</figcaption></figure>
+      <div class="galerie">
+        ${f.fotosWunsch.map((foto, i) => `<img src="${foto}" alt="Wunsch-Ausführung ${i + 1}">`).join("")}
+      </div>
+      <div class="titel">Wunsch-Ausführung</div>
     </div>` : "";
 
   const wunschNotiz = f.wunschNotiz ? `

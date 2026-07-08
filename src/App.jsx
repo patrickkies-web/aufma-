@@ -3,7 +3,8 @@ import { T } from "./design/tokens.js";
 import { num, heutigesDatum } from "./lib/format.js";
 import { storage, STORAGE_KEY } from "./lib/storage.js";
 import { Feld, Gruppe, Notizfeld } from "./components/Feld.jsx";
-import { FotoFeld } from "./components/FotoFeld.jsx";
+import { FotoFeld, FotoGalerieFeld } from "./components/FotoFeld.jsx";
+import { normalisiereFenster } from "./lib/migrate.js";
 import { Skizze } from "./components/Skizze.jsx";
 import { TiefenInfo } from "./components/TiefenInfo.jsx";
 import { Legende } from "./components/Legende.jsx";
@@ -24,7 +25,7 @@ const leer = {
   rT: "", // Rollladenraum Tiefe (mm)
   fotoInnen: null, // Foto Ist-Zustand von innen (Daten-URL)
   fotoAussen: null, // Foto Ist-Zustand von außen (Daten-URL)
-  fotoWunsch: null, // Referenzbild gewünschte Ausführung, z. B. Konfigurator-Screenshot (Daten-URL)
+  fotosWunsch: [], // Referenzbilder gewünschte Ausführung, z. B. Konfigurator-Screenshots (Daten-URLs)
   wunschNotiz: "", // Freitext: Wünsche zum Fenster
 };
 
@@ -40,7 +41,7 @@ export default function App() {
     (async () => {
       try {
         const r = await storage.get(STORAGE_KEY);
-        if (r?.value) setFenster(JSON.parse(r.value));
+        if (r?.value) setFenster(JSON.parse(r.value).map(normalisiereFenster));
       } catch (e) {
         /* noch nichts gespeichert */
       }
@@ -221,7 +222,7 @@ export default function App() {
 
           <Gruppe titel="Wunsch-Ausführung">
             <div style={{ gridColumn: "1 / -1" }}>
-              <FotoFeld label="Referenzbild (z. B. Konfigurator-Screenshot)" value={form.fotoWunsch} onChange={set("fotoWunsch")} />
+              <FotoGalerieFeld label="Referenzbilder (z. B. Konfigurator-Screenshots)" values={form.fotosWunsch} onChange={set("fotosWunsch")} />
             </div>
             <Notizfeld label="Wünsche zum Fenster" value={form.wunschNotiz} onChange={set("wunschNotiz")}
               placeholder="z. B. 3 Felder, mittig Dreh-Kipp, außen Dreh, Farbe weiß …" />

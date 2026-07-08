@@ -84,14 +84,20 @@ export function FensterKarte({ f, index, aktiv, onBearbeiten, onLoeschen }) {
         </div>
       )}
 
-      {f.fotoWunsch && (
-        <figure style={{ margin: "10px 0 0" }}>
-          <img src={f.fotoWunsch} alt="Wunsch-Ausführung" style={{
-            width: "100%", height: 120, objectFit: "cover",
-            borderRadius: 8, border: `1px solid ${T.soft}`, display: "block",
-          }} />
-          <figcaption style={{ fontSize: 11, color: T.line, textAlign: "center", marginTop: 3 }}>Wunsch-Ausführung</figcaption>
-        </figure>
+      {f.fotosWunsch?.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <div style={{
+            display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8,
+          }}>
+            {f.fotosWunsch.map((foto, i) => (
+              <img key={i} src={foto} alt={`Wunsch-Ausführung ${i + 1}`} style={{
+                width: "100%", height: 90, objectFit: "cover",
+                borderRadius: 8, border: `1px solid ${T.soft}`, display: "block",
+              }} />
+            ))}
+          </div>
+          <div style={{ fontSize: 11, color: T.line, textAlign: "center", marginTop: 3 }}>Wunsch-Ausführung</div>
+        </div>
       )}
 
       {f.wunschNotiz && (
