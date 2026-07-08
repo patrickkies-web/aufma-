@@ -65,14 +65,17 @@ export function Skizze({ w, compact = false }) {
 
   const VW = 400;
   const wd = compact ? 16 : 22;
-  const M = { l: 56 + wd, r: 82 + wd, t: 36 + wd, b: 44 + wd };
-  const drawWmax = VW - M.l - M.r;
+  // Gleicher Randabstand links & rechts (die größere, rechts benötigte Breite für
+  // bis zu zwei Maßlinien), damit die Zeichnung bei jedem Seitenverhältnis zentriert bleibt.
+  const seitenrand = 82 + wd;
+  const oben = 36 + wd, unten = 44 + wd;
+  const drawWmax = VW - 2 * seitenrand;
   const drawHmax = compact ? 170 : 250;
 
   const scale = Math.min(drawWmax / aB, drawHmax / aH);
   const W = aB * scale, H = aH * scale;
-  const x0 = M.l, y0 = M.t + 12;
-  const VH = y0 + H + M.b;
+  const x0 = (VW - W) / 2, y0 = oben + 12;
+  const VH = y0 + H + unten;
 
   const fW = fB * scale, fHh = fH * scale;
   const fx = x0 + (W - fW) / 2;
