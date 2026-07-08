@@ -31,6 +31,7 @@ const leer = {
 
 export default function App() {
   const [fenster, setFenster] = useState([]);
+  const [projektNotiz, setProjektNotiz] = useState("");
   const [form, setForm] = useState(leer);
   const [editId, setEditId] = useState(null);
   const [geladen, setGeladen] = useState(false);
@@ -41,7 +42,12 @@ export default function App() {
     (async () => {
       try {
         const r = await storage.get(STORAGE_KEY);
-        if (r?.value) setFenster(JSON.parse(r.value).map(normalisiereFenster));
+        if (r?.value) {
+          const daten = JSON.parse(r.value);
+          const liste = Array.isArray(daten) ? daten : daten.fenster ?? [];
+          setFenster(liste.map(normalisiereFenster));
+          setProjektNotiz(Array.isArray(daten) ? "" : daten.projektNotiz ?? "");
+        }
       } catch (e) {
         /* noch nichts gespeichert */
       }
@@ -49,13 +55,19 @@ export default function App() {
     })();
   }, []);
 
-  const speichern = async (liste) => {
+  const speichern = async (liste, notiz = projektNotiz) => {
     setFenster(liste);
     try {
-      await storage.set(STORAGE_KEY, JSON.stringify(liste));
+      await storage.set(STORAGE_KEY, JSON.stringify({ fenster: liste, projektNotiz: notiz }));
     } catch (e) {
       console.error("Speichern fehlgeschlagen", e);
     }
+  };
+
+  const aktualisiereProjektNotiz = (v) => {
+    setProjektNotiz(v);
+    storage.set(STORAGE_KEY, JSON.stringify({ fenster, projektNotiz: v }))
+      .catch((e) => console.error("Speichern fehlgeschlagen", e));
   };
 
   const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
@@ -105,8 +117,10 @@ export default function App() {
         ...(f.wunschNotiz ? [`  Wünsche:          ${f.wunschNotiz}`] : []),
       ].join("\n");
     });
-    return `AUFMASS FENSTER – alle Maße in mm\n(Tiefe Rollladenraum = Wandkante bündig Fenster bis Innenkante Mauerwerk, zweischalig)\n\n${zeilen.join("\n\n")}`;
-  }, [fenster]);
+    const kopf = `AUFMASS FENSTER – alle Maße in mm\n(Tiefe Rollladenraum = Wandkante bündig Fenster bis Innenkante Mauerwerk, zweischalig)`
+      + (projektNotiz ? `\n\nAllgemeine Hinweise:\n${projektNotiz}` : "");
+    return `${kopf}\n\n${zeilen.join("\n\n")}`;
+  }, [fenster, projektNotiz]);
 
   const kopieren = async () => {
     try {
@@ -129,12 +143,12 @@ export default function App() {
 
   const svgProvider = (id) => document.querySelector(`[data-skizze="${id}"] svg`)?.outerHTML ?? "";
 
-  const handleExportHtml = () => exportFensterbauerHtml(fenster, svgProvider, heute);
+  const handleExportHtml = () => exportFensterbauerHtml(fenster, svgProvider, heute, projektNotiz);
 
   const handleExportPdf = async () => {
     setPdfWirdErstellt(true);
     try {
-      await exportAlsPdf(fenster, svgProvider, heute);
+      await exportAlsPdf(fenster, svgProvider, heute, projektNotiz);
     } catch (e) {
       console.error("PDF-Export fehlgeschlagen", e);
       alert("Das PDF konnte nicht erstellt werden. Bitte erneut versuchen.");
@@ -143,15 +157,16 @@ export default function App() {
     }
   };
 
-  const handleDatenSpeichern = () => datenSpeichern(fenster, heute);
+  const handleDatenSpeichern = () => datenSpeichern(fenster, projektNotiz, heute);
 
   const dateiRef = useRef(null);
   const handleDatenLaden = async (e) => {
     const datei = e.target.files?.[0];
     if (!datei) return;
     try {
-      const bereinigt = await datenLaden(datei);
-      speichern(bereinigt);
+      const geladeneDaten = await datenLaden(datei);
+      speichern(geladeneDaten.fenster, geladeneDaten.projektNotiz);
+      setProjektNotiz(geladeneDaten.projektNotiz);
       setEditId(null);
       setForm(leer);
     } catch (err) {
@@ -175,6 +190,14 @@ export default function App() {
             Maße erfassen, Skizze prüfen, Aufmaß an den Fensterbauer geben. Alle Angaben in mm.
           </p>
         </header>
+
+        <section style={{
+          background: T.card, borderRadius: 12, padding: 16,
+          border: `1px solid ${T.soft}`, marginBottom: 18,
+        }}>
+          <Notizfeld label="Allgemeine Hinweise zum Projekt" value={projektNotiz} onChange={aktualisiereProjektNotiz}
+            placeholder="z. B. Zugang zum Objekt, Termine, Ansprechpartner, allgemeine Wünsche …" />
+        </section>
 
         <section style={{
           background: T.card, borderRadius: 12, padding: 16,

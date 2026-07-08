@@ -3,7 +3,7 @@ import { REPORT_CSS, deckblattHtml, fensterBlockHtml } from "./reportContent.js"
 
 // Baut den druckfertigen HTML-Report für alle erfassten Fenster.
 // svgProvider(id) liefert das gerenderte Skizzen-SVG (als HTML-String) für ein Fenster.
-export function baueFensterbauerHtml(fenster, svgProvider, heute) {
+export function baueFensterbauerHtml(fenster, svgProvider, heute, projektNotiz) {
   const bloecke = fenster.map((f, i) => fensterBlockHtml(f, i, svgProvider)).join("\n");
 
   return `<!doctype html>
@@ -21,7 +21,7 @@ export function baueFensterbauerHtml(fenster, svgProvider, heute) {
 </head>
 <body>
 <div class="aufmass-report">
-${deckblattHtml(fenster.length, heute)}
+${deckblattHtml(fenster.length, heute, projektNotiz)}
 ${bloecke}
 <footer>Zum Drucken oder als PDF speichern: Datei öffnen und die Druckfunktion des Browsers verwenden.</footer>
 </div>
@@ -29,7 +29,7 @@ ${bloecke}
 </html>`;
 }
 
-export function exportFensterbauerHtml(fenster, svgProvider, heute) {
-  const html = baueFensterbauerHtml(fenster, svgProvider, heute);
+export function exportFensterbauerHtml(fenster, svgProvider, heute, projektNotiz) {
+  const html = baueFensterbauerHtml(fenster, svgProvider, heute, projektNotiz);
   download(html, `fenster-aufmass-${heute.replaceAll(".", "-")}.html`, "text/html");
 }

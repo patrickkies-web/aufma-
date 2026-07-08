@@ -1,12 +1,13 @@
 import { download } from "../lib/files.js";
 import { normalisiereFenster } from "../lib/migrate.js";
 
-export function datenSpeichern(fenster, heute) {
-  const daten = { app: "fenster-aufmass", version: 1, gespeichert: new Date().toISOString(), fenster };
+export function datenSpeichern(fenster, projektNotiz, heute) {
+  const daten = { app: "fenster-aufmass", version: 1, gespeichert: new Date().toISOString(), fenster, projektNotiz };
   download(JSON.stringify(daten, null, 2), `fenster-aufmass-${heute.replaceAll(".", "-")}.json`, "application/json");
 }
 
-// Liest eine zuvor exportierte JSON-Datei und liefert eine bereinigte Fensterliste.
+// Liest eine zuvor exportierte JSON-Datei und liefert die bereinigte Fensterliste
+// samt allgemeiner Projektnotiz.
 export function datenLaden(datei) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -15,7 +16,7 @@ export function datenLaden(datei) {
         const daten = JSON.parse(reader.result);
         const liste = Array.isArray(daten) ? daten : daten.fenster;
         if (!Array.isArray(liste)) throw new Error("Kein gültiges Format");
-        const bereinigt = liste
+        const fenster = liste
           .filter((f) => f && typeof f === "object")
           .map((f, i) => normalisiereFenster({
             id: f.id || `${Date.now().toString(36)}-${i}`,
@@ -25,7 +26,8 @@ export function datenLaden(datei) {
             fotoInnen: f.fotoInnen ?? null, fotoAussen: f.fotoAussen ?? null,
             fotosWunsch: f.fotosWunsch, fotoWunsch: f.fotoWunsch, wunschNotiz: f.wunschNotiz ?? "",
           }));
-        resolve(bereinigt);
+        const projektNotiz = Array.isArray(daten) ? "" : daten.projektNotiz ?? "";
+        resolve({ fenster, projektNotiz });
       } catch (err) {
         reject(new Error("Die Datei konnte nicht gelesen werden. Bitte eine mit dieser App gespeicherte JSON-Datei wählen."));
       }
