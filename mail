@@ -1,0 +1,788 @@
+import { useState, useEffect, useMemo, useRef } from "react";
+
+// ————— Design-Token —————
+const T = {
+  paper: "#F2F4F3",
+  card: "#FFFFFF",
+  ink: "#22313F",
+  line: "#8FA0AC",
+  soft: "#DDE4E8",
+  blue: "#2456A6",   // Maßlinien
+  hatch: "#B9C6CE",
+  warn: "#B4530A",
+  mono: "'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace",
+  sans: "'IBM Plex Sans', -apple-system, 'Segoe UI', sans-serif",
+};
+
+const STORAGE_KEY = "fenster-aufmass:v1";
+
+const leer = {
+  name: "",
+  aB: "", // Aussparung innen Breite (mm)
+  aH: "", // Aussparung innen Höhe (mm)
+  aaB: "", // Aussparung außen Breite (mm)
+  aaH: "", // Aussparung außen Höhe (mm)
+  fB: "", // Fensterelement Breite (mm)
+  fH: "", // Fensterelement Höhe (mm)
+  fT: "", // Fensterelement Bautiefe (mm) – Vorderkante bis Hinterkante, tiefste Stelle
+  rT: "", // Rollladenraum Tiefe (mm)
+  fotoInnen: null,  // Foto Ist-Zustand von innen (Daten-URL)
+  fotoAussen: null, // Foto Ist-Zustand von außen (Daten-URL)
+};
+
+const num = (v) => {
+  const n = parseFloat(String(v).replace(",", "."));
+  return isNaN(n) ? 0 : n;
+};
+
+// ————— Maßlinien-Bausteine (Bauzeichnungs-Stil mit Schrägstrichen) —————
+function Tick({ x, y }) {
+  return <line x1={x - 4} y1={y + 4} x2={x + 4} y2={y - 4} stroke={T.blue} strokeWidth="1.4" />;
+}
+
+function DimH({ x1, x2, y, label, above = true }) {
+  return (
+    <g>
+      <line x1={x1} y1={y} x2={x2} y2={y} stroke={T.blue} strokeWidth="1" />
+      <Tick x={x1} y={y} />
+      <Tick x={x2} y={y} />
+      <text
+        x={(x1 + x2) / 2}
+        y={above ? y - 5 : y + 13}
+        textAnchor="middle"
+        fontSize="11"
+        fontFamily={T.mono}
+        fill={T.blue}
+      >
+        {label}
+      </text>
+    </g>
+  );
+}
+
+function DimV({ y1, y2, x, label, left = true }) {
+  const cy = (y1 + y2) / 2;
+  return (
+    <g>
+      <line x1={x} y1={y1} x2={x} y2={y2} stroke={T.blue} strokeWidth="1" />
+      <Tick x={x} y={y1} />
+      <Tick x={x} y={y2} />
+      <text
+        x={left ? x - 5 : x + 15}
+        y={cy}
+        textAnchor="middle"
+        fontSize="11"
+        fontFamily={T.mono}
+        fill={T.blue}
+        transform={`rotate(-90 ${left ? x - 5 : x + 15} ${cy})`}
+      >
+        {label}
+      </text>
+    </g>
+  );
+}
+
+// ————— Farben der Skizze —————
+const SK = {
+  wand: "#E6DFD3",       // Mauerwerk
+  wandLinie: "#B9AC97",
+  oeffnung: "#FFFFFF",   // Maueraussparung
+  glas: "#CFE4F6",       // Fensterelement
+  rahmen: "#2E4A66",
+  rolloBg: "#FBF0DC",    // Rollladenraum
+  rollo: "#D9A441",
+};
+
+// ————— Skizze: Frontansicht + Seitenschnitt —————
+function Skizze({ w, compact = false }) {
+  const aB = num(w.aB), aH = num(w.aH), fB = num(w.fB), fH = num(w.fH), rT = num(w.rT);
+  if (aB <= 0 || aH <= 0) {
+    return (
+      <div style={{
+        padding: 24, textAlign: "center", color: T.line,
+        fontFamily: T.sans, fontSize: 13, border: `1px dashed ${T.soft}`, borderRadius: 8,
+      }}>
+        Skizze erscheint, sobald Breite und Höhe der Maueraussparung eingetragen sind.
+      </div>
+    );
+  }
+
+  const rH = Math.max(aH - fH, 0);
+
+  // Zeichenfläche
+  const VW = 400;
+  const wd = compact ? 16 : 22;          // sichtbares Wandband um die Aussparung
+  const M = { l: 56 + wd, r: 82 + wd, t: 36 + wd, b: 44 + wd };
+  const drawWmax = VW - M.l - M.r;
+  const drawHmax = compact ? 170 : 250;
+
+  const scale = Math.min(drawWmax / aB, drawHmax / aH);
+  const W = aB * scale, H = aH * scale;
+  const x0 = M.l, y0 = M.t + 12;
+  const VH = y0 + H + M.b;
+
+  // Fensterelement: horizontal zentriert, unten bündig
+  const fW = fB * scale, fHh = fH * scale;
+  const fx = x0 + (W - fW) / 2;
+  const fy = y0 + H - fHh;
+  const zeigtFenster = fB > 0 && fH > 0;
+  const zeigtRollo = zeigtFenster && rH > 0;
+
+  const uid = compact ? "c" : "g";
+
+  return (
+    <svg viewBox={`0 0 ${VW} ${VH}`} style={{ width: "100%", display: "block" }}>
+      <defs>
+        {/* Mauerwerk: Ziegel-Andeutung */}
+        <pattern id={`mauer-${uid}`} width="18" height="10" patternUnits="userSpaceOnUse">
+          <rect width="18" height="10" fill={SK.wand} />
+          <path d="M0 0H18M0 10H18M9 0V5M0 5H18M4.5 5V10M13.5 5V10"
+            stroke={SK.wandLinie} strokeWidth="0.7" fill="none" />
+        </pattern>
+        {/* Rollladenraum: markante Schraffur */}
+        <pattern id={`rollo-${uid}`} width="8" height="8" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+          <rect width="8" height="8" fill={SK.rolloBg} />
+          <line x1="0" y1="0" x2="0" y2="8" stroke={SK.rollo} strokeWidth="1.6" />
+        </pattern>
+      </defs>
+
+      {/* ——— Wand (Mauerwerk) rund um die Aussparung ——— */}
+      <rect x={x0 - wd} y={y0 - wd} width={W + 2 * wd} height={H + 2 * wd}
+        fill={`url(#mauer-${uid})`} stroke={T.ink} strokeWidth="1.4" />
+
+      {/* ——— Maueraussparung: weißer Ausschnitt mit kräftiger Kante ——— */}
+      <rect x={x0} y={y0} width={W} height={H} fill={SK.oeffnung} stroke={T.ink} strokeWidth="2.2" />
+
+      {/* ——— Rollladenraum oberhalb des Fensters ——— */}
+      {zeigtRollo && (
+        <g>
+          <rect x={x0} y={y0} width={W} height={H - fHh} fill={`url(#rollo-${uid})`}
+            stroke={SK.rollo} strokeWidth="1.2" />
+        </g>
+      )}
+
+      {/* ——— Fensterelement: dunkler Rahmen + Glas ——— */}
+      {zeigtFenster && (
+        <g>
+          <rect x={fx} y={fy} width={fW} height={fHh} fill={SK.rahmen} />
+          <rect x={fx + 5} y={fy + 5} width={Math.max(fW - 10, 0)} height={Math.max(fHh - 10, 0)}
+            fill={SK.glas} stroke={SK.rahmen} strokeWidth="1" />
+          {/* Glas-Reflex */}
+          <line x1={fx + fW * 0.25} y1={fy + fHh - 10} x2={fx + fW * 0.55} y2={fy + 10}
+            stroke="#FFFFFF" strokeWidth="2.5" opacity="0.7" />
+          <line x1={fx + fW * 0.38} y1={fy + fHh - 10} x2={fx + fW * 0.68} y2={fy + 10}
+            stroke="#FFFFFF" strokeWidth="1.4" opacity="0.7" />
+        </g>
+      )}
+
+      {/* ——— Maße ——— */}
+      <DimH x1={x0} x2={x0 + W} y={y0 + H + wd + 20} label={`Aussparung ${aB} mm`} above={false} />
+      <DimV y1={y0} y2={y0 + H} x={x0 - wd - 18} label={`Aussparung ${aH} mm`} />
+      {zeigtFenster && <DimH x1={fx} x2={fx + fW} y={y0 - wd - 12} label={`Fenster ${fB} mm`} />}
+      {/* Ebene 1 (nah an der Wand): Fensterhöhe */}
+      {zeigtFenster && <DimV y1={fy} y2={y0 + H} x={x0 + W + wd + 16} label={`Fenster ${fH} mm`} left={false} />}
+      {/* Ebene 2 (weiter außen): Rollladenhöhe */}
+      {zeigtRollo && (
+        <g>
+          <line x1={x0 + W} y1={y0} x2={x0 + W + wd + 46} y2={y0}
+            stroke={T.blue} strokeWidth="0.6" strokeDasharray="3 3" opacity="0.6" />
+          <line x1={x0 + W} y1={fy} x2={x0 + W + wd + 46} y2={fy}
+            stroke={T.blue} strokeWidth="0.6" strokeDasharray="3 3" opacity="0.6" />
+          <DimV y1={y0} y2={fy} x={x0 + W + wd + 46} label={`Rollo ${rH} mm`} left={false} />
+        </g>
+      )}
+    </svg>
+  );
+}
+
+// ————— Textzeilen: Tiefenmaße (in der Frontansicht nicht darstellbar) —————
+function TiefenInfo({ w }) {
+  const rT = num(w.rT), fT = num(w.fT);
+  if (rT <= 0 && fT <= 0) return null;
+  return (
+    <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+      {rT > 0 && (
+        <div style={{
+          padding: "8px 12px", borderRadius: 8,
+          background: SK.rolloBg, border: `1px solid ${SK.rollo}`,
+          fontSize: 12.5, color: T.ink, fontFamily: T.sans, lineHeight: 1.45,
+        }}>
+          <strong style={{ fontFamily: T.mono }}>Rollladenraum-Tiefe: {rT} mm</strong>
+          <br />
+          gemessen von der Wandkante bündig zum Fenster bis zur Innenkante des Mauerwerks (zweischalig)
+        </div>
+      )}
+      {fT > 0 && (
+        <div style={{
+          padding: "8px 12px", borderRadius: 8,
+          background: SK.glas, border: `1px solid ${SK.rahmen}`,
+          fontSize: 12.5, color: T.ink, fontFamily: T.sans, lineHeight: 1.45,
+        }}>
+          <strong style={{ fontFamily: T.mono }}>Fenster-Bautiefe: {fT} mm</strong>
+          <br />
+          Vorderkante bis Hinterkante des Fensterelements, an der tiefsten Stelle gemessen
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ————— Legende zur Skizze —————
+function Legende() {
+  const eintraege = [
+    { farbe: SK.wand, rand: SK.wandLinie, text: "Mauerwerk (Wand)" },
+    { farbe: SK.oeffnung, rand: T.ink, text: "Maueraussparung" },
+    { farbe: SK.glas, rand: SK.rahmen, text: "Fensterelement" },
+    { farbe: SK.rolloBg, rand: SK.rollo, text: "Rollladenraum" },
+  ];
+  return (
+    <div style={{
+      display: "flex", flexWrap: "wrap", gap: "6px 16px", marginTop: 8,
+      fontSize: 11.5, color: T.ink, fontFamily: T.sans,
+    }}>
+      {eintraege.map((e) => (
+        <span key={e.text} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <span style={{
+            width: 14, height: 14, borderRadius: 3, background: e.farbe,
+            border: `1.5px solid ${e.rand}`, display: "inline-block",
+          }} />
+          {e.text}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// ————— Eingabefeld —————
+function Feld({ label, value, onChange, unit = "mm", placeholder = "0" }) {
+  return (
+    <label style={{ display: "block" }}>
+      <span style={{
+        display: "block", fontSize: 11, letterSpacing: "0.04em",
+        textTransform: "uppercase", color: T.line, marginBottom: 4, fontFamily: T.sans,
+      }}>{label}</span>
+      <div style={{ position: "relative" }}>
+        <input
+          type="text" inputMode="decimal" value={value} placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            width: "100%", boxSizing: "border-box", padding: "10px 44px 10px 12px",
+            border: `1px solid ${T.soft}`, borderRadius: 8, fontSize: 16,
+            fontFamily: T.mono, color: T.ink, background: "#FFF", outline: "none",
+          }}
+          onFocus={(e) => (e.target.style.borderColor = T.blue)}
+          onBlur={(e) => (e.target.style.borderColor = T.soft)}
+        />
+        <span style={{
+          position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
+          fontSize: 12, color: T.line, fontFamily: T.mono,
+        }}>{unit}</span>
+      </div>
+    </label>
+  );
+}
+
+function Gruppe({ titel, children }) {
+  return (
+    <fieldset style={{
+      border: `1px solid ${T.soft}`, borderRadius: 10, padding: "12px 14px 14px",
+      margin: 0,
+    }}>
+      <legend style={{
+        fontSize: 12, fontWeight: 600, color: T.ink, padding: "0 6px",
+        fontFamily: T.sans,
+      }}>{titel}</legend>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        {children}
+      </div>
+    </fieldset>
+  );
+}
+
+// ————— Fotos: verkleinern, damit sie speicherbar bleiben —————
+const bildVerkleinern = (datei) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(datei);
+    img.onload = () => {
+      const max = 1000;
+      const s = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * s);
+      c.height = Math.round(img.height * s);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      resolve(c.toDataURL("image/jpeg", 0.7));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Bild unlesbar")); };
+    img.src = url;
+  });
+
+function FotoFeld({ label, value, onChange }) {
+  const ref = useRef(null);
+  const waehlen = async (e) => {
+    const datei = e.target.files?.[0];
+    if (!datei) return;
+    try { onChange(await bildVerkleinern(datei)); }
+    catch (err) { alert("Das Foto konnte nicht gelesen werden."); }
+    e.target.value = "";
+  };
+  return (
+    <div>
+      <span style={{
+        display: "block", fontSize: 11, letterSpacing: "0.04em",
+        textTransform: "uppercase", color: T.line, marginBottom: 4, fontFamily: T.sans,
+      }}>{label}</span>
+      <input ref={ref} type="file" accept="image/*" onChange={waehlen} style={{ display: "none" }} />
+      {value ? (
+        <div>
+          <img src={value} alt={label} style={{
+            width: "100%", height: 110, objectFit: "cover",
+            borderRadius: 8, border: `1px solid ${T.soft}`, display: "block",
+          }} />
+          <div style={{ display: "flex", gap: 12, marginTop: 4 }}>
+            <button onClick={() => ref.current?.click()} style={{
+              background: "none", border: "none", color: T.blue, fontSize: 12.5,
+              cursor: "pointer", fontFamily: T.sans, padding: 0,
+            }}>Ersetzen</button>
+            <button onClick={() => onChange(null)} style={{
+              background: "none", border: "none", color: T.warn, fontSize: 12.5,
+              cursor: "pointer", fontFamily: T.sans, padding: 0,
+            }}>Entfernen</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => ref.current?.click()} style={{
+          width: "100%", height: 110, borderRadius: 8, cursor: "pointer",
+          border: `1.5px dashed ${T.line}`, background: T.paper,
+          color: T.line, fontSize: 13, fontFamily: T.sans,
+        }}>
+          + Foto aufnehmen<br />oder auswählen
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ————— Haupt-App —————
+export default function FensterAufmass() {
+  const [fenster, setFenster] = useState([]);
+  const [form, setForm] = useState(leer);
+  const [editId, setEditId] = useState(null);
+  const [geladen, setGeladen] = useState(false);
+  const [kopiert, setKopiert] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await window.storage.get(STORAGE_KEY);
+        if (r?.value) setFenster(JSON.parse(r.value));
+      } catch (e) { /* noch nichts gespeichert */ }
+      setGeladen(true);
+    })();
+  }, []);
+
+  const speichern = async (liste) => {
+    setFenster(liste);
+    try { await window.storage.set(STORAGE_KEY, JSON.stringify(liste)); }
+    catch (e) { console.error("Speichern fehlgeschlagen", e); }
+  };
+
+  const set = (k) => (v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const rH = Math.max(num(form.aH) - num(form.fH), 0);
+  const gueltig = num(form.aB) > 0 && num(form.aH) > 0;
+  const warnung =
+    (num(form.fB) > num(form.aB) && num(form.aB) > 0 && "Fensterbreite ist größer als die Aussparung.") ||
+    (num(form.fH) > num(form.aH) && num(form.aH) > 0 && "Fensterhöhe ist größer als die Aussparung.") ||
+    null;
+
+  const uebernehmen = () => {
+    if (!gueltig) return;
+    if (editId) {
+      speichern(fenster.map((f) => (f.id === editId ? { ...form, id: editId } : f)));
+      setEditId(null);
+    } else {
+      speichern([...fenster, { ...form, id: Date.now().toString(36) }]);
+    }
+    setForm(leer);
+  };
+
+  const bearbeiten = (f) => { setForm(f); setEditId(f.id); window.scrollTo({ top: 0, behavior: "smooth" }); };
+  const loeschen = (id) => {
+    speichern(fenster.filter((f) => f.id !== id));
+    if (editId === id) { setEditId(null); setForm(leer); }
+  };
+
+  const aufmassText = useMemo(() => {
+    const zeilen = fenster.map((f, i) => {
+      const h = Math.max(num(f.aH) - num(f.fH), 0);
+      return [
+        `Fenster ${i + 1}${f.name ? ` – ${f.name}` : ""}`,
+        `  Maueraussparung innen:  B ${num(f.aB)} × H ${num(f.aH)} mm`,
+        `  Maueraussparung außen:  B ${num(f.aaB)} × H ${num(f.aaH)} mm`,
+        `  Fensterelement:   B ${num(f.fB)} × H ${num(f.fH)} mm`,
+        `  Fenster-Bautiefe: T ${num(f.fT)} mm (Vorder- bis Hinterkante, tiefste Stelle)`,
+        `  Rollladenraum:    T ${num(f.rT)} × H ${h} mm`,
+      ].join("\n");
+    });
+    return `AUFMASS FENSTER – alle Maße in mm\n(Tiefe Rollladenraum = Wandkante bündig Fenster bis Innenkante Mauerwerk, zweischalig)\n\n${zeilen.join("\n\n")}`;
+  }, [fenster]);
+
+  const kopieren = async () => {
+    try {
+      await navigator.clipboard.writeText(aufmassText);
+      setKopiert(true);
+      setTimeout(() => setKopiert(false), 2000);
+    } catch (e) {
+      const ta = document.createElement("textarea");
+      ta.value = aufmassText;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+      setKopiert(true);
+      setTimeout(() => setKopiert(false), 2000);
+    }
+  };
+
+  // ————— Datei herunterladen (Hilfsfunktion) —————
+  const download = (inhalt, dateiname, typ) => {
+    const blob = new Blob([inhalt], { type: typ });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = dateiname;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const heute = new Date().toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+  // ————— Export für den Fensterbauer (druckfertige HTML-Datei) —————
+  const exportFensterbauer = () => {
+    const bloecke = fenster.map((f, i) => {
+      const el = document.querySelector(`[data-skizze="${f.id}"] svg`);
+      const svg = el ? el.outerHTML : "";
+      const h = Math.max(num(f.aH) - num(f.fH), 0);
+      return `
+      <section class="fenster">
+        <h2><span class="nr">${String(i + 1).padStart(2, "0")}</span> ${f.name ? f.name : "Ohne Bezeichnung"}</h2>
+        <div class="inhalt">
+          <div class="skizze">${svg}</div>
+          <table>
+            <tr><th>Maueraussparung innen</th><td>B ${num(f.aB)} × H ${num(f.aH)} mm</td></tr>
+            <tr><th>Maueraussparung außen</th><td>B ${num(f.aaB)} × H ${num(f.aaH)} mm</td></tr>
+            <tr><th>Fensterelement (Bestand)</th><td>B ${num(f.fB)} × H ${num(f.fH)} mm</td></tr>
+            <tr><th>Fenster-Bautiefe (tiefste Stelle)</th><td>T ${num(f.fT)} mm</td></tr>
+            <tr><th>Rollladenraum</th><td>T ${num(f.rT)} × H ${h} mm</td></tr>
+          </table>
+          ${(f.fotoInnen || f.fotoAussen) ? `
+          <div class="fotos">
+            ${f.fotoAussen ? `<figure><img src="${f.fotoAussen}" alt="Foto außen"><figcaption>Ist-Zustand außen</figcaption></figure>` : ""}
+            ${f.fotoInnen ? `<figure><img src="${f.fotoInnen}" alt="Foto innen"><figcaption>Ist-Zustand innen</figcaption></figure>` : ""}
+          </div>` : ""}
+        </div>
+      </section>`;
+    }).join("\n");
+
+    const html = `<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fenster-Aufmaß – ${heute}</title>
+<style>
+  body { font-family: -apple-system, 'Segoe UI', Arial, sans-serif; color: #22313F; margin: 0; padding: 32px 24px; max-width: 800px; margin-inline: auto; }
+  header { border-bottom: 3px solid #22313F; padding-bottom: 12px; margin-bottom: 8px; }
+  h1 { margin: 0; font-size: 24px; }
+  .meta { color: #6B7A85; font-size: 13px; margin-top: 4px; }
+  .hinweis { background: #FBF0DC; border: 1px solid #D9A441; border-radius: 8px; padding: 10px 14px; font-size: 13px; margin: 16px 0 24px; line-height: 1.5; }
+  .fenster { border: 1px solid #DDE4E8; border-radius: 10px; padding: 16px 18px; margin-bottom: 20px; page-break-inside: avoid; }
+  .fenster h2 { margin: 0 0 10px; font-size: 16px; }
+  .nr { font-family: ui-monospace, Menlo, monospace; color: #2456A6; }
+  .skizze svg { width: 100%; max-width: 460px; height: auto; display: block; margin-inline: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 10px; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid #EEF1F3; text-align: left; }
+  th { color: #6B7A85; font-weight: 600; width: 55%; }
+  td { font-family: ui-monospace, Menlo, monospace; }
+  .fotos { display: flex; gap: 14px; margin-top: 14px; }
+  .fotos figure { margin: 0; flex: 1; }
+  .fotos img { width: 100%; border-radius: 8px; border: 1px solid #DDE4E8; display: block; }
+  .fotos figcaption { font-size: 12px; color: #6B7A85; text-align: center; margin-top: 4px; }
+  footer { color: #6B7A85; font-size: 12px; margin-top: 24px; }
+  @media print { body { padding: 0; } .fenster { border-color: #BFC9CF; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>Fenster-Aufmaß</h1>
+  <div class="meta">Erstellt am ${heute} · ${fenster.length} Fenster · alle Maße in mm</div>
+</header>
+<div class="hinweis">
+  <strong>Hinweis zur Rollladenraum-Tiefe:</strong> gemessen von der Wandkante bündig zum Fenster
+  bis zur Innenkante des Mauerwerks (zweischaliges Mauerwerk).
+  Die Rollladenraum-Höhe ergibt sich aus Aussparungshöhe minus Fensterhöhe.
+</div>
+${bloecke}
+<footer>Zum Drucken oder als PDF speichern: Datei öffnen und die Druckfunktion des Browsers verwenden.</footer>
+</body>
+</html>`;
+    download(html, `fenster-aufmass-${heute.replaceAll(".", "-")}.html`, "text/html");
+  };
+
+  // ————— Daten als Datei speichern / laden —————
+  const dateiRef = useRef(null);
+
+  const datenSpeichern = () => {
+    const daten = { app: "fenster-aufmass", version: 1, gespeichert: new Date().toISOString(), fenster };
+    download(JSON.stringify(daten, null, 2), `fenster-aufmass-${heute.replaceAll(".", "-")}.json`, "application/json");
+  };
+
+  const datenLaden = (e) => {
+    const datei = e.target.files?.[0];
+    if (!datei) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const daten = JSON.parse(reader.result);
+        const liste = Array.isArray(daten) ? daten : daten.fenster;
+        if (!Array.isArray(liste)) throw new Error("Kein gültiges Format");
+        const bereinigt = liste
+          .filter((f) => f && typeof f === "object")
+          .map((f, i) => ({
+            id: f.id || `${Date.now().toString(36)}-${i}`,
+            name: f.name || "",
+            aB: f.aB ?? "", aH: f.aH ?? "", aaB: f.aaB ?? "", aaH: f.aaH ?? "",
+            fB: f.fB ?? "", fH: f.fH ?? "", fT: f.fT ?? "", rT: f.rT ?? "",
+            fotoInnen: f.fotoInnen ?? null, fotoAussen: f.fotoAussen ?? null,
+          }));
+        speichern(bereinigt);
+        setEditId(null);
+        setForm(leer);
+      } catch (err) {
+        alert("Die Datei konnte nicht gelesen werden. Bitte eine mit dieser App gespeicherte JSON-Datei wählen.");
+      }
+      e.target.value = "";
+    };
+    reader.readAsText(datei);
+  };
+
+  const btn = (primary) => ({
+    padding: "11px 18px", borderRadius: 8, border: primary ? "none" : `1px solid ${T.soft}`,
+    background: primary ? T.blue : "#FFF", color: primary ? "#FFF" : T.ink,
+    fontSize: 14, fontWeight: 600, fontFamily: T.sans, cursor: "pointer",
+  });
+
+  return (
+    <div style={{ minHeight: "100vh", background: T.paper, fontFamily: T.sans, color: T.ink }}>
+      <style>{`@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;600&display=swap');`}</style>
+
+      <div style={{ maxWidth: 560, margin: "0 auto", padding: "20px 16px 60px" }}>
+        {/* Kopf */}
+        <header style={{ marginBottom: 18, borderBottom: `2px solid ${T.ink}`, paddingBottom: 10 }}>
+          <h1 style={{ margin: 0, fontSize: 22, letterSpacing: "0.01em" }}>Fenster-Aufmaß</h1>
+          <p style={{ margin: "4px 0 0", fontSize: 13, color: T.line }}>
+            Maße erfassen, Skizze prüfen, Aufmaß an den Fensterbauer geben. Alle Angaben in mm.
+          </p>
+        </header>
+
+        {/* Formular */}
+        <section style={{
+          background: T.card, borderRadius: 12, padding: 16,
+          border: `1px solid ${T.soft}`, display: "grid", gap: 14,
+        }}>
+          <Feld label="Bezeichnung / Raum" value={form.name} onChange={set("name")}
+            unit="" placeholder="z. B. Küche Süd" />
+
+          <Gruppe titel="Maueraussparung von innen (gesamt)">
+            <Feld label="Breite" value={form.aB} onChange={set("aB")} />
+            <Feld label="Höhe" value={form.aH} onChange={set("aH")} />
+          </Gruppe>
+
+          <Gruppe titel="Maueraussparung von außen">
+            <Feld label="Breite" value={form.aaB} onChange={set("aaB")} />
+            <Feld label="Höhe" value={form.aaH} onChange={set("aaH")} />
+          </Gruppe>
+
+          <Gruppe titel="Sichtbares Fensterelement (Bestand)">
+            <Feld label="Breite" value={form.fB} onChange={set("fB")} />
+            <Feld label="Höhe" value={form.fH} onChange={set("fH")} />
+            <Feld label="Bautiefe (Vorder- → Hinterkante)" value={form.fT} onChange={set("fT")} />
+          </Gruppe>
+
+          <Gruppe titel="Rollladenraum">
+            <Feld label="Tiefe (Wandkante → Innenkante)" value={form.rT} onChange={set("rT")} />
+            <div>
+              <span style={{
+                display: "block", fontSize: 11, letterSpacing: "0.04em",
+                textTransform: "uppercase", color: T.line, marginBottom: 4,
+              }}>Höhe (berechnet)</span>
+              <div style={{
+                padding: "10px 12px", borderRadius: 8, background: T.paper,
+                border: `1px dashed ${T.soft}`, fontFamily: T.mono, fontSize: 16,
+              }}>
+                {num(form.aH) > 0 && num(form.fH) > 0 ? `${rH} mm` : "–"}
+              </div>
+            </div>
+          </Gruppe>
+
+          <Gruppe titel="Fotos Ist-Zustand">
+            <FotoFeld label="Foto von innen" value={form.fotoInnen} onChange={set("fotoInnen")} />
+            <FotoFeld label="Foto von außen" value={form.fotoAussen} onChange={set("fotoAussen")} />
+          </Gruppe>
+
+          {warnung && (
+            <div style={{
+              fontSize: 13, color: T.warn, background: "#FBF1E7",
+              border: `1px solid ${T.warn}33`, borderRadius: 8, padding: "8px 12px",
+            }}>⚠ {warnung}</div>
+          )}
+
+          {/* Live-Skizze */}
+          <div style={{ borderTop: `1px solid ${T.soft}`, paddingTop: 12 }}>
+            <Skizze w={form} />
+            {gueltig && <TiefenInfo w={form} />}
+            {gueltig && <Legende />}
+          </div>
+
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={uebernehmen} disabled={!gueltig}
+              style={{ ...btn(true), flex: 1, opacity: gueltig ? 1 : 0.4 }}>
+              {editId ? "Änderung speichern" : "Fenster hinzufügen"}
+            </button>
+            {editId && (
+              <button onClick={() => { setEditId(null); setForm(leer); }} style={btn(false)}>
+                Abbrechen
+              </button>
+            )}
+          </div>
+        </section>
+
+        {/* Liste */}
+        <section style={{ marginTop: 26 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
+            <h2 style={{ margin: 0, fontSize: 15 }}>
+              Aufmaßliste <span style={{ color: T.line, fontFamily: T.mono, fontSize: 13 }}>({fenster.length})</span>
+            </h2>
+          </div>
+
+          {/* Werkzeugleiste: Export & Datei */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+            <button onClick={exportFensterbauer} disabled={fenster.length === 0}
+              style={{ ...btn(true), padding: "9px 14px", fontSize: 13, opacity: fenster.length ? 1 : 0.4 }}>
+              Export für Fensterbauer
+            </button>
+            <button onClick={kopieren} disabled={fenster.length === 0}
+              style={{ ...btn(false), padding: "9px 14px", fontSize: 13, opacity: fenster.length ? 1 : 0.4 }}>
+              {kopiert ? "✓ Kopiert" : "Als Text kopieren"}
+            </button>
+            <button onClick={datenSpeichern} disabled={fenster.length === 0}
+              style={{ ...btn(false), padding: "9px 14px", fontSize: 13, opacity: fenster.length ? 1 : 0.4 }}>
+              Datei speichern
+            </button>
+            <button onClick={() => dateiRef.current?.click()}
+              style={{ ...btn(false), padding: "9px 14px", fontSize: 13 }}>
+              Datei laden
+            </button>
+            <input ref={dateiRef} type="file" accept=".json,application/json"
+              onChange={datenLaden} style={{ display: "none" }} />
+          </div>
+
+          {geladen && fenster.length === 0 && (
+            <p style={{ fontSize: 13, color: T.line, textAlign: "center", padding: "18px 0" }}>
+              Noch keine Fenster erfasst. Trage oben das erste Fenster ein.
+            </p>
+          )}
+
+          <div style={{ display: "grid", gap: 12 }}>
+            {fenster.map((f, i) => {
+              const h = Math.max(num(f.aH) - num(f.fH), 0);
+              return (
+                <article key={f.id} style={{
+                  background: T.card, border: `1px solid ${editId === f.id ? T.blue : T.soft}`,
+                  borderRadius: 12, padding: 14,
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+                    <strong style={{ fontSize: 14 }}>
+                      <span style={{ fontFamily: T.mono, color: T.blue }}>{String(i + 1).padStart(2, "0")}</span>
+                      {" "}{f.name || "Ohne Bezeichnung"}
+                    </strong>
+                    <span style={{ display: "flex", gap: 12 }}>
+                      <button onClick={() => bearbeiten(f)} style={{
+                        background: "none", border: "none", color: T.blue, fontSize: 13,
+                        cursor: "pointer", fontFamily: T.sans, padding: 0,
+                      }}>Bearbeiten</button>
+                      <button onClick={() => loeschen(f.id)} style={{
+                        background: "none", border: "none", color: T.warn, fontSize: 13,
+                        cursor: "pointer", fontFamily: T.sans, padding: 0,
+                      }}>Löschen</button>
+                    </span>
+                  </div>
+
+                  <div data-skizze={f.id}>
+                    <Skizze w={f} compact />
+                  </div>
+                  <TiefenInfo w={f} />
+
+                  <table style={{
+                    width: "100%", fontSize: 12.5, fontFamily: T.mono,
+                    borderCollapse: "collapse", marginTop: 8,
+                  }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>Aussparung innen</td>
+                        <td style={{ textAlign: "right" }}>B {num(f.aB)} × H {num(f.aH)}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>Aussparung außen</td>
+                        <td style={{ textAlign: "right" }}>B {num(f.aaB)} × H {num(f.aaH)}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>Fensterelement</td>
+                        <td style={{ textAlign: "right" }}>B {num(f.fB)} × H {num(f.fH)}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>Fenster-Bautiefe</td>
+                        <td style={{ textAlign: "right" }}>T {num(f.fT)}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ color: T.line, padding: "3px 0", fontFamily: T.sans }}>Rollladenraum</td>
+                        <td style={{ textAlign: "right" }}>T {num(f.rT)} × H {h}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  {(f.fotoInnen || f.fotoAussen) && (
+                    <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                      {f.fotoInnen && (
+                        <figure style={{ margin: 0, flex: 1 }}>
+                          <img src={f.fotoInnen} alt="Innen" style={{
+                            width: "100%", height: 90, objectFit: "cover",
+                            borderRadius: 8, border: `1px solid ${T.soft}`, display: "block",
+                          }} />
+                          <figcaption style={{ fontSize: 11, color: T.line, textAlign: "center", marginTop: 3 }}>Innen</figcaption>
+                        </figure>
+                      )}
+                      {f.fotoAussen && (
+                        <figure style={{ margin: 0, flex: 1 }}>
+                          <img src={f.fotoAussen} alt="Außen" style={{
+                            width: "100%", height: 90, objectFit: "cover",
+                            borderRadius: 8, border: `1px solid ${T.soft}`, display: "block",
+                          }} />
+                          <figcaption style={{ fontSize: 11, color: T.line, textAlign: "center", marginTop: 3 }}>Außen</figcaption>
+                        </figure>
+                      )}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
