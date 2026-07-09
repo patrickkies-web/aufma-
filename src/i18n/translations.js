@@ -74,9 +74,9 @@ export const translations = {
     labelRollo: "Rollo",
 
     rollladenTiefeLabel: "Rollladenraum-Tiefe",
-    rollladenTiefeBeschreibung: "gemessen von der Wandkante bündig zum Fenster bis zur Innenkante des Mauerwerks (zweischalig)",
+    rollladenTiefeBeschreibung: "Verfügbare Tiefe für den Rollladen, gemessen ab der Wand im Innenraum.",
     fensterBautiefeLabel: "Fenster-Bautiefe",
-    fensterBautiefeBeschreibung: "Vorderkante bis Hinterkante des Fensterelements, an der tiefsten Stelle gemessen",
+    fensterBautiefeBeschreibung: "Das Maß des aktuellen Fensters – wie tief es selbst ist.",
 
     legendeMauerwerk: "Mauerwerk (Wand)",
     legendeMaueraussparung: "Maueraussparung",
@@ -86,7 +86,7 @@ export const translations = {
     reportTitel: "Fenster-Aufmaß",
     reportErstelltAm: "Erstellt am {{datum}} · {{anzahl}} Fenster · alle Maße in mm",
     reportHinweisRollladenStark: "Hinweis zur Rollladenraum-Tiefe:",
-    reportHinweisRollladenText: "gemessen von der Wandkante bündig zum Fenster bis zur Innenkante des Mauerwerks (zweischaliges Mauerwerk). Die Rollladenraum-Höhe ergibt sich aus Aussparungshöhe minus Fensterhöhe.",
+    reportHinweisRollladenText: "Verfügbare Tiefe für den Rollladen, gemessen ab der Wand im Innenraum. Die Rollladenraum-Höhe ergibt sich aus Aussparungshöhe minus Fensterhöhe.",
     reportAllgemeineHinweise: "Allgemeine Hinweise",
     reportFusszeile: "Zum Drucken oder als PDF speichern: Datei öffnen und die Druckfunktion des Browsers verwenden.",
     reportMaueraussparungInnen: "Maueraussparung innen",
@@ -176,9 +176,9 @@ export const translations = {
     labelRollo: "Roleta",
 
     rollladenTiefeLabel: "Głębokość skrzynki roletowej",
-    rollladenTiefeBeschreibung: "mierzona od krawędzi ściany w linii okna do wewnętrznej krawędzi muru (mur dwuwarstwowy)",
+    rollladenTiefeBeschreibung: "Dostępna głębokość na roletę, mierzona od ściany od strony wnętrza.",
     fensterBautiefeLabel: "Głębokość konstrukcyjna okna",
-    fensterBautiefeBeschreibung: "od krawędzi przedniej do tylnej elementu okiennego, mierzone w najgłębszym miejscu",
+    fensterBautiefeBeschreibung: "Wymiar aktualnego okna – jak głębokie jest samo okno.",
 
     legendeMauerwerk: "Mur (ściana)",
     legendeMaueraussparung: "Otwór w murze",
@@ -188,7 +188,7 @@ export const translations = {
     reportTitel: "Pomiar okien",
     reportErstelltAm: "Utworzono {{datum}} · liczba okien: {{anzahl}} · wszystkie wymiary w mm",
     reportHinweisRollladenStark: "Uwaga dotycząca głębokości skrzynki roletowej:",
-    reportHinweisRollladenText: "mierzona od krawędzi ściany w linii okna do wewnętrznej krawędzi muru (mur dwuwarstwowy). Wysokość skrzynki roletowej wynika z wysokości otworu minus wysokość okna.",
+    reportHinweisRollladenText: "Dostępna głębokość na roletę, mierzona od ściany od strony wnętrza. Wysokość skrzynki roletowej wynika z wysokości otworu minus wysokość okna.",
     reportAllgemeineHinweise: "Ogólne uwagi",
     reportFusszeile: "Aby wydrukować lub zapisać jako PDF: otwórz plik i użyj funkcji drukowania przeglądarki.",
     reportMaueraussparungInnen: "Otwór w murze wewnątrz",
